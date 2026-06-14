@@ -81,7 +81,8 @@ export const NodeProvisionFormBaseSchema = z.object({
   sshPassword: z.string().optional().default(''),
   sshPrivateKey: z.string().optional().default(''),
   sshPrivateKeyPass: z.string().optional().default(''),
-  sshHostKeySha256: z.string().trim().min(1, 'pages.nodes.toasts.fillRequired'),
+  sshHostKeySha256: z.string().trim().optional().default(''),
+  sshSkipHostKeyCheck: z.boolean().default(false),
   sudoPassword: z.string().optional().default(''),
   panelPort: z.number().int().min(1).max(65535).optional(),
   webBasePath: z.string().optional().default(''),
@@ -99,6 +100,13 @@ export const NodeProvisionFormSchema = NodeProvisionFormBaseSchema.superRefine((
       code: z.ZodIssueCode.custom,
       path: ['sshPassword'],
       message: 'pages.nodes.toasts.sshAuthRequired',
+    });
+  }
+  if (!value.sshSkipHostKeyCheck && !value.sshHostKeySha256) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['sshHostKeySha256'],
+      message: 'pages.nodes.toasts.fillRequired',
     });
   }
   if (value.sslMode === 'domain' && !value.domain) {

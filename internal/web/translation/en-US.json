@@ -891,6 +891,7 @@
       "sshPrivateKey": "SSH private key",
       "sshPrivateKeyPass": "Private key passphrase",
       "sshHostKeySha256": "SSH host key SHA256",
+      "sshSkipHostKeyCheck": "Ignore SSH host key check",
       "sshHostKeyHint": "Required to prevent man-in-the-middle attacks. Get it with: ssh-keyscan -t ed25519 <host> | ssh-keygen -lf - -E sha256",
       "sslMode": "SSL mode",
       "panelPort": "Panel port",

@@ -6234,6 +6234,7 @@
                 "sshUser": "root",
                 "sshPassword": "...",
                 "sshHostKeySha256": "SHA256:...",
+                "sshSkipHostKeyCheck": false,
                 "sslMode": "none",
                 "panelPort": 54321,
                 "webBasePath": "panel"

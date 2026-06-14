@@ -37,7 +37,8 @@ type NodeProvisionRequest struct {
 	SSHPassword         string `json:"sshPassword"`
 	SSHPrivateKey       string `json:"sshPrivateKey"`
 	SSHPrivateKeyPass   string `json:"sshPrivateKeyPass"`
-	SSHHostKeySHA256    string `json:"sshHostKeySha256" validate:"required"`
+	SSHHostKeySHA256    string `json:"sshHostKeySha256"`
+	SSHSkipHostKeyCheck bool   `json:"sshSkipHostKeyCheck"`
 	SudoPassword        string `json:"sudoPassword"`
 	PanelPort           int    `json:"panelPort" validate:"omitempty,gte=1,lte=65535"`
 	WebBasePath         string `json:"webBasePath"`
@@ -134,10 +135,11 @@ func (r *NodeProvisionRequest) normalize() error {
 	if r.SSHPassword == "" && r.SSHPrivateKey == "" {
 		return common.NewError("ssh password or private key is required")
 	}
-	if r.SSHHostKeySHA256 == "" {
+	if r.SSHSkipHostKeyCheck {
+		r.SSHHostKeySHA256 = ""
+	} else if r.SSHHostKeySHA256 == "" {
 		return common.NewError("ssh host key SHA256 fingerprint is required")
-	}
-	if _, err := base64.StdEncoding.DecodeString(r.SSHHostKeySHA256); err != nil {
+	} else if _, err := base64.StdEncoding.DecodeString(r.SSHHostKeySHA256); err != nil {
 		return common.NewError("ssh host key SHA256 fingerprint must be base64")
 	}
 	host, err := netsafe.NormalizeHost(r.SSHHost)
@@ -199,11 +201,18 @@ func runProvisionSSH(ctx context.Context, req *NodeProvisionRequest) (string, er
 	if err != nil {
 		return "", err
 	}
+	hostKeyCallback := pinnedSSHHostKeyCallback(req.SSHHostKeySHA256)
+	hostKeyAlgorithms := []string{ssh.KeyAlgoED25519}
+	if req.SSHSkipHostKeyCheck {
+		hostKeyCallback = ssh.InsecureIgnoreHostKey()
+		hostKeyAlgorithms = nil
+	}
 	cfg := &ssh.ClientConfig{
-		User:            req.SSHUser,
-		Auth:            auth,
-		HostKeyCallback: pinnedSSHHostKeyCallback(req.SSHHostKeySHA256),
-		Timeout:         nodeProvisionSSHTimeout,
+		User:              req.SSHUser,
+		Auth:              auth,
+		HostKeyAlgorithms: hostKeyAlgorithms,
+		HostKeyCallback:   hostKeyCallback,
+		Timeout:           nodeProvisionSSHTimeout,
 	}
 	addr := net.JoinHostPort(req.SSHHost, strconv.Itoa(req.SSHPort))
 	dialCtx, cancel := context.WithTimeout(ctx, nodeProvisionSSHTimeout)
@@ -427,8 +436,46 @@ func parseShellValue(v string) string {
 
 func normalizeSSHFingerprint(s string) string {
 	s = strings.TrimSpace(s)
-	s = strings.TrimPrefix(s, "SHA256:")
+	if decoded, ok := decodeBase64Text(s); ok {
+		s = decoded
+	}
+	for _, field := range strings.Fields(s) {
+		if strings.HasPrefix(field, "SHA256:") {
+			s = field
+			break
+		}
+	}
+	s = strings.TrimPrefix(strings.TrimSpace(s), "SHA256:")
+	if decoded, err := base64.StdEncoding.DecodeString(s); err == nil && len(decoded) == sha256.Size {
+		return base64.StdEncoding.EncodeToString(decoded)
+	}
+	if decoded, err := base64.RawStdEncoding.DecodeString(s); err == nil && len(decoded) == sha256.Size {
+		return base64.StdEncoding.EncodeToString(decoded)
+	}
 	return strings.TrimSpace(s)
+}
+
+func decodeBase64Text(s string) (string, bool) {
+	decoded, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		decoded, err = base64.RawStdEncoding.DecodeString(s)
+	}
+	if err != nil || len(decoded) == 0 {
+		return "", false
+	}
+	for _, b := range decoded {
+		if b == '\n' || b == '\r' || b == '\t' {
+			continue
+		}
+		if b < 0x20 || b > 0x7e {
+			return "", false
+		}
+	}
+	text := strings.TrimSpace(string(decoded))
+	if strings.Contains(text, "SHA256:") || strings.HasPrefix(text, "256 ") {
+		return text, true
+	}
+	return "", false
 }
 
 var secretLineRe = regexp.MustCompile(`(?i)(PASSWORD|TOKEN|PRIVATE_KEY|PASSPHRASE)=.*`)

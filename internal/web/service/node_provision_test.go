@@ -56,9 +56,18 @@ func TestRedactProvisionOutput(t *testing.T) {
 }
 
 func TestNormalizeSSHFingerprint(t *testing.T) {
-	got := normalizeSSHFingerprint(" SHA256:abc123 ")
-	if got != "abc123" {
-		t.Fatalf("normalizeSSHFingerprint = %q, want abc123", got)
+	fp := "gIlayuW+JE9lHgJR3jhu2V036MqWLcRfsID8ZB8+HWM"
+	want := fp + "="
+	tests := []string{
+		" SHA256:" + fp + " ",
+		"256 SHA256:" + fp + " no comment (ED25519)",
+		"U0hBMjU2OmdJbGF5dVcrSkU5bEhnSlIzamh1MlYwMzZNcVdMY1Jmc0lEOFpCOCtIV00K",
+	}
+	for _, input := range tests {
+		got := normalizeSSHFingerprint(input)
+		if got != want {
+			t.Fatalf("normalizeSSHFingerprint(%q) = %q, want %q", input, got, want)
+		}
 	}
 }
 
@@ -72,5 +81,23 @@ func TestProvisionRequestNormalizeRequiresHostKey(t *testing.T) {
 	}
 	if err := req.normalize(); err == nil {
 		t.Fatal("expected missing host key fingerprint error")
+	}
+}
+
+func TestProvisionRequestNormalizeAllowsSkippingHostKeyCheck(t *testing.T) {
+	req := &NodeProvisionRequest{
+		Name:                "n1",
+		SSHHost:             "203.0.113.10",
+		SSHPort:             22,
+		SSHUser:             "root",
+		SSHPassword:         "pw",
+		SSHHostKeySHA256:    "stale value",
+		SSHSkipHostKeyCheck: true,
+	}
+	if err := req.normalize(); err != nil {
+		t.Fatalf("normalize: %v", err)
+	}
+	if req.SSHHostKeySHA256 != "" {
+		t.Fatalf("SSHHostKeySHA256 = %q, want empty when check is skipped", req.SSHHostKeySHA256)
 	}
 }

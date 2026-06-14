@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Button,
+  Checkbox,
   Col,
   Form,
   Input,
@@ -89,6 +90,7 @@ export default function NodeFormModal({
   const tlsVerifyMode = Form.useWatch('tlsVerifyMode', form) ?? 'verify';
   const inboundSyncMode = Form.useWatch('inboundSyncMode', form) ?? 'all';
   const sslMode = Form.useWatch('sslMode', form) ?? 'none';
+  const sshSkipHostKeyCheck = Form.useWatch('sshSkipHostKeyCheck', form) ?? false;
   const isProvision = mode === 'add' && addMode === 'provision';
 
   useEffect(() => {
@@ -112,10 +114,11 @@ export default function NodeFormModal({
         sshPrivateKey: '',
         sshPrivateKeyPass: '',
         sshHostKeySha256: '',
+        sshSkipHostKeyCheck: false,
         sudoPassword: '',
         panelPort: undefined,
         webBasePath: '',
-        sslMode: 'none',
+        sslMode: 'none' as const,
         domain: '',
         acmeEmail: '',
       };
@@ -358,9 +361,13 @@ export default function NodeFormModal({
                 label={t('pages.nodes.sshHostKeySha256')}
                 name="sshHostKeySha256"
                 extra={t('pages.nodes.sshHostKeyHint')}
-                rules={[antdRule(NodeProvisionFormBaseSchema.shape.sshHostKeySha256, t)]}
+                rules={sshSkipHostKeyCheck ? [] : [{ required: true, message: t('pages.nodes.toasts.fillRequired') }]}
               >
-                <Input placeholder="SHA256:..." />
+                <Input placeholder="SHA256:..." disabled={sshSkipHostKeyCheck} />
+              </Form.Item>
+
+              <Form.Item name="sshSkipHostKeyCheck" valuePropName="checked">
+                <Checkbox>{t('pages.nodes.sshSkipHostKeyCheck')}</Checkbox>
               </Form.Item>
 
               <Row gutter={16}>
