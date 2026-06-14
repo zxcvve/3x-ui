@@ -8,6 +8,7 @@ import {
   Input,
   InputNumber,
   Modal,
+  Radio,
   Row,
   Select,
   Switch,
@@ -16,7 +17,15 @@ import {
 import type { NodeRecord } from '@/api/queries/useNodesQuery';
 import type { RemoteInboundOption } from '@/api/queries/useNodeMutations';
 import type { Msg } from '@/utils';
-import { NodeFormSchema, type NodeFormValues, type ProbeResult } from '@/schemas/node';
+import {
+  NodeFormSchema,
+  NodeProvisionFormBaseSchema,
+  NodeProvisionFormSchema,
+  type NodeFormValues,
+  type NodeProvisionFormValues,
+  type NodeProvisionResult,
+  type ProbeResult,
+} from '@/schemas/node';
 import { antdRule } from '@/utils/zodForm';
 import './NodeFormModal.css';
 
@@ -30,6 +39,7 @@ interface NodeFormModalProps {
   fetchFingerprint: (payload: Partial<NodeRecord>) => Promise<Msg<string>>;
   fetchInbounds: (payload: Partial<NodeRecord>) => Promise<Msg<RemoteInboundOption[]>>;
   save: (payload: Partial<NodeRecord>) => Promise<Msg<unknown>>;
+  provision: (payload: NodeProvisionFormValues) => Promise<Msg<NodeProvisionResult>>;
   onOpenChange: (open: boolean) => void;
 }
 
@@ -60,26 +70,31 @@ export default function NodeFormModal({
   fetchFingerprint,
   fetchInbounds,
   save,
+  provision,
   onOpenChange,
 }: NodeFormModalProps) {
   const { t } = useTranslation();
-  const [form] = Form.useForm<NodeFormValues>();
+  const [form] = Form.useForm<NodeFormValues & NodeProvisionFormValues>();
   const [messageApi, messageContextHolder] = message.useMessage();
 
   const [submitting, setSubmitting] = useState(false);
+  const [addMode, setAddMode] = useState<'existing' | 'provision'>('existing');
   const [testing, setTesting] = useState(false);
   const [fetchingPin, setFetchingPin] = useState(false);
   const [fetchingInbounds, setFetchingInbounds] = useState(false);
   const [inboundOptions, setInboundOptions] = useState<RemoteInboundOption[]>([]);
   const [testResult, setTestResult] = useState<ProbeResult | null>(null);
+  const [provisionResult, setProvisionResult] = useState<NodeProvisionResult | null>(null);
   const scheme = Form.useWatch('scheme', form) ?? 'https';
   const tlsVerifyMode = Form.useWatch('tlsVerifyMode', form) ?? 'verify';
   const inboundSyncMode = Form.useWatch('inboundSyncMode', form) ?? 'all';
+  const sslMode = Form.useWatch('sslMode', form) ?? 'none';
+  const isProvision = mode === 'add' && addMode === 'provision';
 
   useEffect(() => {
     if (!open) return;
     const base = defaultValues();
-    const next: NodeFormValues = mode === 'edit' && node
+    const next = mode === 'edit' && node
       ? {
         ...base,
         ...(node as unknown as Partial<NodeFormValues>),
@@ -88,12 +103,29 @@ export default function NodeFormModal({
         inboundSyncMode: (node.inboundSyncMode as 'all' | 'selected') || base.inboundSyncMode,
         inboundTags: node.inboundTags ?? [],
       }
-      : base;
+      : {
+        ...base,
+        sshHost: '',
+        sshPort: 22,
+        sshUser: 'root',
+        sshPassword: '',
+        sshPrivateKey: '',
+        sshPrivateKeyPass: '',
+        sshHostKeySha256: '',
+        sudoPassword: '',
+        panelPort: undefined,
+        webBasePath: '',
+        sslMode: 'none',
+        domain: '',
+        acmeEmail: '',
+      };
     if (next.scheme === 'http') next.tlsVerifyMode = 'skip';
+    if (mode === 'edit') setAddMode('existing');
     form.resetFields();
     form.setFieldsValue(next);
     setInboundOptions((next.inboundTags || []).map((tag) => ({ tag })));
     setTestResult(null);
+    setProvisionResult(null);
   }, [open, mode, node, form]);
 
   const title = useMemo(
@@ -183,6 +215,29 @@ export default function NodeFormModal({
   }
 
   async function onFinish(values: NodeFormValues) {
+    if (isProvision) {
+      const result = NodeProvisionFormSchema.safeParse(values);
+      if (!result.success) {
+        messageApi.error(t(result.error.issues[0]?.message ?? 'pages.nodes.toasts.fillRequired'));
+        return;
+      }
+      setSubmitting(true);
+      setProvisionResult(null);
+      try {
+        const msg = await provision(result.data);
+        if (msg?.success) {
+          setProvisionResult(msg.obj ?? null);
+          onOpenChange(false);
+        } else {
+          setProvisionResult(msg?.obj ?? null);
+          messageApi.error(msg?.msg || t('pages.nodes.toasts.provisionFailed'));
+        }
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
     const result = NodeFormSchema.safeParse(values);
     if (!result.success) {
       messageApi.error(t(result.error.issues[0]?.message ?? 'pages.nodes.toasts.fillRequired'));
@@ -218,7 +273,7 @@ export default function NodeFormModal({
         open={open}
         title={title}
         confirmLoading={submitting}
-        okText={t('save')}
+        okText={isProvision ? t('pages.nodes.provision') : t('save')}
         cancelText={t('cancel')}
         mask={{ closable: false }}
         width="640px"
@@ -231,6 +286,22 @@ export default function NodeFormModal({
           initialValues={defaultValues()}
           onFinish={onFinish}
         >
+          {mode === 'add' && (
+            <Form.Item label={t('pages.nodes.addMode')}>
+              <Radio.Group
+                value={addMode}
+                onChange={(e) => {
+                  setAddMode(e.target.value);
+                  setTestResult(null);
+                  setProvisionResult(null);
+                }}
+              >
+                <Radio.Button value="existing">{t('pages.nodes.existingPanel')}</Radio.Button>
+                <Radio.Button value="provision">{t('pages.nodes.provisionViaSsh')}</Radio.Button>
+              </Radio.Group>
+            </Form.Item>
+          )}
+
           <Row gutter={16}>
             <Col xs={24} md={12}>
               <Form.Item
@@ -248,6 +319,131 @@ export default function NodeFormModal({
             </Col>
           </Row>
 
+          {isProvision ? (
+            <>
+              <Alert
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+                message={t('pages.nodes.provisionHint')}
+              />
+
+              <Row gutter={16}>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    label={t('pages.nodes.sshHost')}
+                    name="sshHost"
+                    rules={[antdRule(NodeProvisionFormBaseSchema.shape.sshHost, t)]}
+                  >
+                    <Input placeholder="203.0.113.10" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={6}>
+                  <Form.Item label={t('pages.nodes.sshPort')} name="sshPort">
+                    <InputNumber min={1} max={65535} style={{ width: '100%' }} />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={6}>
+                  <Form.Item
+                    label={t('pages.nodes.sshUser')}
+                    name="sshUser"
+                    rules={[antdRule(NodeProvisionFormBaseSchema.shape.sshUser, t)]}
+                  >
+                    <Input placeholder="root" />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Form.Item
+                label={t('pages.nodes.sshHostKeySha256')}
+                name="sshHostKeySha256"
+                extra={t('pages.nodes.sshHostKeyHint')}
+                rules={[antdRule(NodeProvisionFormBaseSchema.shape.sshHostKeySha256, t)]}
+              >
+                <Input placeholder="SHA256:..." />
+              </Form.Item>
+
+              <Row gutter={16}>
+                <Col xs={24} md={12}>
+                  <Form.Item label={t('pages.nodes.sshPassword')} name="sshPassword">
+                    <Input.Password autoComplete="new-password" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item label={t('pages.nodes.sudoPassword')} name="sudoPassword" extra={t('pages.nodes.sudoPasswordHint')}>
+                    <Input.Password autoComplete="new-password" />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Form.Item label={t('pages.nodes.sshPrivateKey')} name="sshPrivateKey">
+                <Input.TextArea rows={4} autoComplete="off" />
+              </Form.Item>
+
+              <Form.Item label={t('pages.nodes.sshPrivateKeyPass')} name="sshPrivateKeyPass">
+                <Input.Password autoComplete="new-password" />
+              </Form.Item>
+
+              <Row gutter={16}>
+                <Col xs={24} md={8}>
+                  <Form.Item label={t('pages.nodes.sslMode')} name="sslMode">
+                    <Select
+                      options={[
+                        { value: 'none', label: 'none' },
+                        { value: 'ip', label: 'ip' },
+                        { value: 'domain', label: 'domain' },
+                      ]}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={8}>
+                  <Form.Item label={t('pages.nodes.panelPort')} name="panelPort">
+                    <InputNumber min={1} max={65535} placeholder={t('pages.nodes.random')} style={{ width: '100%' }} />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={8}>
+                  <Form.Item label={t('pages.nodes.webBasePath')} name="webBasePath">
+                    <Input placeholder={t('pages.nodes.random')} />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              {sslMode === 'domain' && (
+                <Row gutter={16}>
+                  <Col xs={24} md={12}>
+                    <Form.Item label={t('pages.nodes.domain')} name="domain">
+                      <Input placeholder="panel.example.com" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={12}>
+                    <Form.Item label={t('pages.nodes.acmeEmail')} name="acmeEmail">
+                      <Input placeholder="admin@example.com" />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              )}
+
+              <Form.Item
+                label={t('pages.nodes.allowPrivateAddress')}
+                name="allowPrivateAddress"
+                valuePropName="checked"
+                extra={t('pages.nodes.allowPrivateAddressHint')}
+              >
+                <Switch />
+              </Form.Item>
+
+              {provisionResult?.output && provisionResult.output.length > 0 && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                  message={t('pages.nodes.provisionOutput')}
+                  description={<pre className="provision-output">{provisionResult.output.join('\n')}</pre>}
+                />
+              )}
+            </>
+          ) : (
+            <>
           <Row gutter={16}>
             <Col xs={24} md={6}>
               <Form.Item label={t('pages.nodes.scheme')} name="scheme">
@@ -420,6 +616,8 @@ export default function NodeFormModal({
               </div>
             )}
           </div>
+            </>
+          )}
         </Form>
       </Modal>
     </>

@@ -4,7 +4,13 @@ import { HttpUtil, Msg } from '@/utils';
 import { parseMsg } from '@/utils/zodValidate';
 import { keys } from '@/api/queryKeys';
 import type { NodeRecord } from '@/api/queries/useNodesQuery';
-import { ProbeResultSchema, type ProbeResult } from '@/schemas/node';
+import {
+  NodeProvisionResultSchema,
+  ProbeResultSchema,
+  type NodeProvisionFormValues,
+  type NodeProvisionResult,
+  type ProbeResult,
+} from '@/schemas/node';
 
 export type { ProbeResult };
 
@@ -38,6 +44,16 @@ export function useNodeMutations() {
     onSuccess: (msg) => { if (msg?.success) invalidate(); },
   });
 
+  const provisionMut = useMutation({
+    mutationFn: async (payload: NodeProvisionFormValues): Promise<Msg<NodeProvisionResult>> => {
+      const raw = await HttpUtil.post('/panel/api/nodes/provision', payload, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+      return parseMsg(raw, NodeProvisionResultSchema, 'nodes/provision');
+    },
+    onSuccess: (msg) => { if (msg?.success) invalidate(); },
+  });
+
   const removeMut = useMutation({
     mutationFn: (id: number) =>
       HttpUtil.post(`/panel/api/nodes/del/${id}`),
@@ -68,6 +84,7 @@ export function useNodeMutations() {
 
   return {
     create: (payload: Partial<NodeRecord>) => createMut.mutateAsync(payload),
+    provision: (payload: NodeProvisionFormValues): Promise<Msg<NodeProvisionResult>> => provisionMut.mutateAsync(payload),
     update: (id: number, payload: Partial<NodeRecord>) => updateMut.mutateAsync({ id, payload }),
     remove: (id: number) => removeMut.mutateAsync(id),
     setEnable: (id: number, enable: boolean) => setEnableMut.mutateAsync({ id, enable }),

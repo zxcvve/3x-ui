@@ -72,6 +72,52 @@ export const NodeFormSchema = z.object({
   inboundTags: z.array(z.string()).nullish().transform((tags) => tags ?? []),
 });
 
+export const NodeProvisionFormBaseSchema = z.object({
+  name: z.string().trim().min(1, 'pages.nodes.toasts.fillRequired'),
+  remark: z.string().optional(),
+  sshHost: z.string().trim().min(1, 'pages.nodes.toasts.fillRequired'),
+  sshPort: z.number().int().min(1).max(65535).default(22),
+  sshUser: z.string().trim().min(1, 'pages.nodes.toasts.fillRequired'),
+  sshPassword: z.string().optional().default(''),
+  sshPrivateKey: z.string().optional().default(''),
+  sshPrivateKeyPass: z.string().optional().default(''),
+  sshHostKeySha256: z.string().trim().min(1, 'pages.nodes.toasts.fillRequired'),
+  sudoPassword: z.string().optional().default(''),
+  panelPort: z.number().int().min(1).max(65535).optional(),
+  webBasePath: z.string().optional().default(''),
+  sslMode: z.enum(['none', 'ip', 'domain']).default('none'),
+  domain: z.string().optional().default(''),
+  acmeEmail: z.string().optional().default(''),
+  allowPrivateAddress: z.boolean().default(false),
+  tlsVerifyMode: z.enum(['verify', 'skip', 'pin']).default('verify'),
+  pinnedCertSha256: z.string().optional().default(''),
+});
+
+export const NodeProvisionFormSchema = NodeProvisionFormBaseSchema.superRefine((value, ctx) => {
+  if (!value.sshPassword && !value.sshPrivateKey) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['sshPassword'],
+      message: 'pages.nodes.toasts.sshAuthRequired',
+    });
+  }
+  if (value.sslMode === 'domain' && !value.domain) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['domain'],
+      message: 'pages.nodes.toasts.fillRequired',
+    });
+  }
+});
+
+export const NodeProvisionResultSchema = z.object({
+  node: NodeRecordSchema.optional(),
+  accessUrl: z.string().optional(),
+  output: z.array(z.string()).optional(),
+}).loose();
+
 export type NodeRecord = z.infer<typeof NodeRecordSchema>;
 export type ProbeResult = z.infer<typeof ProbeResultSchema>;
 export type NodeFormValues = z.infer<typeof NodeFormSchema>;
+export type NodeProvisionFormValues = z.infer<typeof NodeProvisionFormSchema>;
+export type NodeProvisionResult = z.infer<typeof NodeProvisionResultSchema>;

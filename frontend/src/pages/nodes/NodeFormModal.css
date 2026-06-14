@@ -20,3 +20,11 @@
 .test-result {
   width: 100%;
 }
+
+.provision-output {
+  max-height: 220px;
+  overflow: auto;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

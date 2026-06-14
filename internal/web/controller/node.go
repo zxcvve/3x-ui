@@ -16,7 +16,8 @@ import (
 )
 
 type NodeController struct {
-	nodeService service.NodeService
+	nodeService      service.NodeService
+	provisionService service.NodeProvisionService
 }
 
 func NewNodeController(g *gin.RouterGroup) *NodeController {
@@ -31,6 +32,7 @@ func (a *NodeController) initRouter(g *gin.RouterGroup) {
 	g.GET("/webCert/:id", a.webCert)
 
 	g.POST("/add", a.add)
+	g.POST("/provision", a.provision)
 	g.POST("/update/:id", a.update)
 	g.POST("/del/:id", a.del)
 	g.POST("/setEnable/:id", a.setEnable)
@@ -105,6 +107,15 @@ func (a *NodeController) add(c *gin.Context) {
 		return
 	}
 	jsonMsgObj(c, I18nWeb(c, "pages.nodes.toasts.add"), n, nil)
+}
+
+func (a *NodeController) provision(c *gin.Context) {
+	req, ok := middleware.BindJSONAndValidate[service.NodeProvisionRequest](c)
+	if !ok {
+		return
+	}
+	result, err := a.provisionService.Provision(c.Request.Context(), req)
+	jsonMsgObj(c, I18nWeb(c, "pages.nodes.toasts.provision"), result, err)
 }
 
 func (a *NodeController) update(c *gin.Context) {

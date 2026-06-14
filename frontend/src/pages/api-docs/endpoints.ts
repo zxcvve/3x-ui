@@ -805,6 +805,15 @@ export const sections: readonly Section[] = [
       },
       {
         method: 'POST',
+        path: '/panel/api/nodes/provision',
+        summary: 'Install 3x-ui on a server over SSH, read the generated API token, probe the new panel, and register it as a node. SSH credentials are one-shot request secrets and are not stored.',
+        body:
+          '{\n  "name": "de-fra-1",\n  "sshHost": "203.0.113.10",\n  "sshPort": 22,\n  "sshUser": "root",\n  "sshPassword": "...",\n  "sshHostKeySha256": "SHA256:...",\n  "sslMode": "none",\n  "panelPort": 54321,\n  "webBasePath": "panel"\n}',
+        response:
+          '{\n  "success": true,\n  "obj": {\n    "node": { "id": 7, "name": "de-fra-1" },\n    "accessUrl": "http://203.0.113.10:54321/panel",\n    "output": ["XUI_API_TOKEN=<redacted>"]\n  }\n}',
+      },
+      {
+        method: 'POST',
         path: '/panel/api/nodes/update/:id',
         summary: 'Replace a node\u2019s connection details. Same body shape as /add.',
         params: [
