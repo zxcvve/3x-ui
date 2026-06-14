@@ -157,6 +157,10 @@ write_install_result() {
     local u="$1" p="$2" port="$3" wbp="$4" scheme="$5" host="$6" token="$7" dbtype="$8"
     local result_file="/etc/x-ui/install-result.env"
     local url_host="${host:-SERVER_IP_UNKNOWN}"
+    if [[ -z "$token" ]]; then
+        echo -e "${red}Fatal error: failed to generate API token; refusing to write incomplete ${result_file}.${plain}" >&2
+        return 1
+    fi
     install -d -m 755 /etc/x-ui 2> /dev/null
     local prev_umask
     prev_umask=$(umask)
@@ -178,6 +182,22 @@ write_install_result() {
     chmod 600 "$result_file" 2> /dev/null
     chown root:root "$result_file" 2> /dev/null || true
     echo -e "${green}Install result written to ${result_file} (mode 600).${plain}"
+}
+
+get_or_create_api_token() {
+    local output token
+    if ! output=$("${xui_folder}/x-ui" setting -getApiToken true 2>&1); then
+        echo -e "${red}Fatal error: failed to create API token.${plain}" >&2
+        echo "$output" >&2
+        return 1
+    fi
+    token=$(printf '%s\n' "$output" | awk '/apiToken:[[:space:]]+/ {print $2; exit}')
+    if [[ -z "$token" ]]; then
+        echo -e "${red}Fatal error: x-ui did not return an API token.${plain}" >&2
+        echo "$output" >&2
+        return 1
+    fi
+    printf '%s\n' "$token"
 }
 
 install_postgres_local() {
@@ -1176,8 +1196,11 @@ EOF
 
             prompt_and_setup_ssl "${config_port}" "${config_webBasePath}" "${server_ip}"
 
-            # Retrieve the API token for display
-            local config_apiToken=$(${xui_folder}/x-ui setting -getApiToken true | grep -Eo 'apiToken: .+' | awk '{print $2}')
+            # Retrieve the API token for display and node provisioning.
+            local config_apiToken
+            if ! config_apiToken=$(get_or_create_api_token); then
+                exit 1
+            fi
 
             # Display final credentials and access information
             echo ""
@@ -1271,7 +1294,9 @@ EOF
 
             # Persist a machine-parseable credentials file for cloud-init / MOTD.
             local config_apiToken
-            config_apiToken=$(${xui_folder}/x-ui setting -getApiToken true | grep -Eo 'apiToken: .+' | awk '{print $2}')
+            if ! config_apiToken=$(get_or_create_api_token); then
+                exit 1
+            fi
             : "${SSL_SCHEME:=https}"
             : "${SSL_HOST:=${server_ip}}"
             write_install_result "${config_username}" "${config_password}" "${existing_port}" \

@@ -273,7 +273,38 @@ func runProvisionSSH(ctx context.Context, req *NodeProvisionRequest) (string, er
 			return out.String(), err
 		}
 	}
+	if !strings.Contains(out.String(), "XUI_API_TOKEN=") {
+		if extra := readProvisionInstallResult(client, req); extra != "" {
+			out.WriteString(extra)
+		}
+	}
 	return out.String(), nil
+}
+
+func readProvisionInstallResult(client *ssh.Client, req *NodeProvisionRequest) string {
+	session, err := client.NewSession()
+	if err != nil {
+		return ""
+	}
+	defer session.Close()
+
+	var out bytes.Buffer
+	session.Stdout = &out
+	session.Stderr = &out
+	if err := session.Run(buildProvisionResultReadCommand(req)); err != nil {
+		return ""
+	}
+	return out.String()
+}
+
+func buildProvisionResultReadCommand(req *NodeProvisionRequest) string {
+	if req.SudoPassword != "" {
+		return fmt.Sprintf("printf %%s\\\\n %s | sudo -S cat /etc/x-ui/install-result.env\n", shellQuote(req.SudoPassword))
+	}
+	if req.SSHUser == "root" {
+		return "cat /etc/x-ui/install-result.env\n"
+	}
+	return "sudo cat /etc/x-ui/install-result.env\n"
 }
 
 func pinnedSSHHostKeyCallback(expected string) ssh.HostKeyCallback {

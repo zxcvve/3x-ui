@@ -118,7 +118,15 @@ if ! "$XUI_BIN" setting -username "$NEW_USER" -password "$NEW_PASS" -port "$NEW_
     exit 1
 fi
 
-API_TOKEN=$("$XUI_BIN" setting -getApiToken true 2> /dev/null | grep -Eo 'apiToken: .+' | awk '{print $2}')
+API_TOKEN_OUTPUT=$("$XUI_BIN" setting -getApiToken true 2>&1) || {
+    log "ERROR: failed to create API token: ${API_TOKEN_OUTPUT}"
+    exit 1
+}
+API_TOKEN=$(printf '%s\n' "$API_TOKEN_OUTPUT" | awk '/apiToken:[[:space:]]+/ {print $2; exit}')
+if [[ -z "$API_TOKEN" ]]; then
+    log "ERROR: x-ui did not return an API token: ${API_TOKEN_OUTPUT}"
+    exit 1
+fi
 SERVER_IP=$(detect_ip)
 ACCESS_URL="http://${SERVER_IP}:${NEW_PORT}/${NEW_PATH}"
 

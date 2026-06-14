@@ -101,3 +101,34 @@ func TestProvisionRequestNormalizeAllowsSkippingHostKeyCheck(t *testing.T) {
 		t.Fatalf("SSHHostKeySHA256 = %q, want empty when check is skipped", req.SSHHostKeySHA256)
 	}
 }
+
+func TestBuildProvisionResultReadCommand(t *testing.T) {
+	tests := []struct {
+		name string
+		req  NodeProvisionRequest
+		want string
+	}{
+		{
+			name: "root",
+			req:  NodeProvisionRequest{SSHUser: "root"},
+			want: "cat /etc/x-ui/install-result.env\n",
+		},
+		{
+			name: "sudo",
+			req:  NodeProvisionRequest{SSHUser: "ubuntu"},
+			want: "sudo cat /etc/x-ui/install-result.env\n",
+		},
+		{
+			name: "sudo password",
+			req:  NodeProvisionRequest{SSHUser: "ubuntu", SudoPassword: "p'ass"},
+			want: "printf %s\\\\n 'p'\"'\"'ass' | sudo -S cat /etc/x-ui/install-result.env\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := buildProvisionResultReadCommand(&tt.req); got != tt.want {
+				t.Fatalf("buildProvisionResultReadCommand() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
