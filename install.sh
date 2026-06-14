@@ -851,6 +851,9 @@ prompt_and_setup_ssl() {
                 fi
             else
                 echo -e "${red}SSL certificate setup failed for domain mode.${plain}"
+                if [[ "$NONINTERACTIVE" == "1" ]]; then
+                    return 1
+                fi
                 SSL_HOST="${server_ip}"
             fi
             ;;
@@ -1194,7 +1197,9 @@ EOF
             echo -e "${yellow}Let's Encrypt now supports both domains and IP addresses!${plain}"
             echo ""
 
-            prompt_and_setup_ssl "${config_port}" "${config_webBasePath}" "${server_ip}"
+            if ! prompt_and_setup_ssl "${config_port}" "${config_webBasePath}" "${server_ip}"; then
+                exit 1
+            fi
 
             # Retrieve the API token for display and node provisioning.
             local config_apiToken
@@ -1272,7 +1277,9 @@ EOF
                 echo -e "${green}═══════════════════════════════════════════${plain}"
                 echo -e "${yellow}Let's Encrypt now supports both domains and IP addresses!${plain}"
                 echo ""
-                prompt_and_setup_ssl "${existing_port}" "${config_webBasePath}" "${server_ip}"
+                if ! prompt_and_setup_ssl "${existing_port}" "${config_webBasePath}" "${server_ip}"; then
+                    exit 1
+                fi
                 echo -e "${green}Access URL:  ${SSL_SCHEME}://${SSL_HOST}:${existing_port}/${config_webBasePath}${plain}"
             else
                 # If a cert already exists, just show the access URL
@@ -1315,7 +1322,9 @@ EOF
             echo -e "${green}═══════════════════════════════════════════${plain}"
             echo -e "${yellow}Let's Encrypt now supports both domains and IP addresses!${plain}"
             echo ""
-            prompt_and_setup_ssl "${existing_port}" "${existing_webBasePath}" "${server_ip}"
+            if ! prompt_and_setup_ssl "${existing_port}" "${existing_webBasePath}" "${server_ip}"; then
+                exit 1
+            fi
             echo -e "${green}Access URL:  ${SSL_SCHEME}://${SSL_HOST}:${existing_port}/${existing_webBasePath}${plain}"
         else
             echo -e "${green}SSL certificate already configured. No action needed.${plain}"
