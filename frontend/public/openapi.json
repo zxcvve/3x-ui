@@ -1005,6 +1005,14 @@
             "description": "Security method (e.g., \"auto\", \"aes-128-gcm\")",
             "type": "string"
           },
+          "speedLimitDownload": {
+            "description": "Download speed limit in bytes per second",
+            "type": "integer"
+          },
+          "speedLimitUpload": {
+            "description": "Upload speed limit in bytes per second",
+            "type": "integer"
+          },
           "subId": {
             "description": "Subscription identifier",
             "type": "string"
@@ -1030,6 +1038,8 @@
           "limitIp",
           "reset",
           "security",
+          "speedLimitDownload",
+          "speedLimitUpload",
           "subId",
           "tgId",
           "totalGB"
@@ -1101,6 +1111,12 @@
           "security": {
             "type": "string"
           },
+          "speedLimitDownload": {
+            "type": "integer"
+          },
+          "speedLimitUpload": {
+            "type": "integer"
+          },
           "subId": {
             "type": "string"
           },
@@ -1132,6 +1148,8 @@
           "reset",
           "reverse",
           "security",
+          "speedLimitDownload",
+          "speedLimitUpload",
           "subId",
           "tgId",
           "totalGB",

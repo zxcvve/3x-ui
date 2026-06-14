@@ -88,6 +88,8 @@ interface FormState {
   security: string;
   reverseTag: string;
   totalGB: number;
+  speedLimitUpload: number;
+  speedLimitDownload: number;
   expiryDate: Dayjs | null;
   delayedStart: boolean;
   delayedDays: number;
@@ -111,6 +113,8 @@ function emptyForm(): FormState {
     security: 'auto',
     reverseTag: '',
     totalGB: 0,
+    speedLimitUpload: 0,
+    speedLimitDownload: 0,
     expiryDate: null,
     delayedStart: false,
     delayedDays: 0,
@@ -179,6 +183,8 @@ export default function ClientFormModal({
         security: client.security || 'auto',
         reverseTag: client.reverse?.tag || '',
         totalGB: bytesToGB(client.totalGB || 0),
+        speedLimitUpload: Number(client.speedLimitUpload) || 0,
+        speedLimitDownload: Number(client.speedLimitDownload) || 0,
         reset: Number(client.reset) || 0,
         limitIp: client.limitIp || 0,
         tgId: Number(client.tgId) || 0,
@@ -260,6 +266,8 @@ export default function ClientFormModal({
     () => (form.inboundIds || []).some((id) => vlessLikeIds.has(id)),
     [form.inboundIds, vlessLikeIds],
   );
+
+  const showSpeedLimits = showReverseTag;
 
   const showSecurity = useMemo(
     () => (form.inboundIds || []).some((id) => vmessIds.has(id)),
@@ -360,6 +368,8 @@ export default function ClientFormModal({
       security: form.security,
       reverseTag: form.reverseTag,
       totalGB: form.totalGB,
+      speedLimitUpload: form.speedLimitUpload,
+      speedLimitDownload: form.speedLimitDownload,
       delayedStart: form.delayedStart,
       delayedDays: form.delayedDays,
       reset: form.reset,
@@ -387,6 +397,8 @@ export default function ClientFormModal({
       flow: showFlow ? (form.flow || '') : '',
       security: showSecurity ? (form.security || 'auto') : 'auto',
       totalGB: gbToBytes(form.totalGB),
+      speedLimitUpload: showSpeedLimits ? Number(form.speedLimitUpload) || 0 : Number(client?.speedLimitUpload) || 0,
+      speedLimitDownload: showSpeedLimits ? Number(form.speedLimitDownload) || 0 : Number(client?.speedLimitDownload) || 0,
       expiryTime,
       reset: Number(form.reset) || 0,
       limitIp: Number(form.limitIp) || 0,
@@ -510,6 +522,39 @@ export default function ClientFormModal({
                         </Form.Item>
                       </Col>
                     </Row>
+
+                    {showSpeedLimits && (
+                      <Row gutter={16}>
+                        <Col xs={24} md={12}>
+                          <Form.Item
+                            label={t('pages.clients.speedLimitUpload')}
+                            tooltip={t('pages.clients.speedLimitBytesDesc')}
+                          >
+                            <InputNumber
+                              value={form.speedLimitUpload}
+                              min={0}
+                              step={1024}
+                              style={{ width: '100%' }}
+                              onChange={(v) => update('speedLimitUpload', Number(v) || 0)}
+                            />
+                          </Form.Item>
+                        </Col>
+                        <Col xs={24} md={12}>
+                          <Form.Item
+                            label={t('pages.clients.speedLimitDownload')}
+                            tooltip={t('pages.clients.speedLimitBytesDesc')}
+                          >
+                            <InputNumber
+                              value={form.speedLimitDownload}
+                              min={0}
+                              step={1024}
+                              style={{ width: '100%' }}
+                              onChange={(v) => update('speedLimitDownload', Number(v) || 0)}
+                            />
+                          </Form.Item>
+                        </Col>
+                      </Row>
+                    )}
 
                     <Row gutter={16}>
                       <Col xs={24} md={12}>

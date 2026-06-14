@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"testing"
 
@@ -68,6 +69,72 @@ func TestSyncInbound_PreservesCredentialsAcrossProtocols(t *testing.T) {
 	}
 	if len(hysteriaList) != 1 || hysteriaList[0].Flow != "" {
 		t.Errorf("Hysteria inbound should report empty flow, got %#v", hysteriaList)
+	}
+}
+
+func TestSyncInbound_PreservesVlessSpeedLimits(t *testing.T) {
+	dbDir := t.TempDir()
+	t.Setenv("XUI_DB_FOLDER", dbDir)
+	if err := database.InitDB(filepath.Join(dbDir, "x-ui.db")); err != nil {
+		t.Fatalf("InitDB: %v", err)
+	}
+	t.Cleanup(func() { _ = database.CloseDB() })
+
+	db := database.GetDB()
+
+	vless := &model.Inbound{Tag: "vless-limited", Enable: true, Port: 10004, Protocol: model.VLESS}
+	if err := db.Create(vless).Error; err != nil {
+		t.Fatalf("create vless inbound: %v", err)
+	}
+
+	svc := ClientService{}
+	client := model.Client{
+		Email:              "limited@example.com",
+		ID:                 "ce8d33df-3a64-4f10-8f9b-91c3a8e0c004",
+		Enable:             true,
+		SpeedLimitUpload:   1024,
+		SpeedLimitDownload: 2048,
+	}
+	if err := svc.SyncInbound(nil, vless.Id, []model.Client{client}); err != nil {
+		t.Fatalf("SyncInbound: %v", err)
+	}
+
+	var row model.ClientRecord
+	if err := db.Where("email = ?", client.Email).First(&row).Error; err != nil {
+		t.Fatalf("lookup client row: %v", err)
+	}
+	if row.SpeedLimitUpload != client.SpeedLimitUpload || row.SpeedLimitDownload != client.SpeedLimitDownload {
+		t.Fatalf("stored speed limits = upload %d download %d, want upload %d download %d",
+			row.SpeedLimitUpload, row.SpeedLimitDownload, client.SpeedLimitUpload, client.SpeedLimitDownload)
+	}
+
+	list, err := svc.ListForInbound(nil, vless.Id)
+	if err != nil {
+		t.Fatalf("ListForInbound: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected 1 client, got %d", len(list))
+	}
+	if list[0].SpeedLimitUpload != client.SpeedLimitUpload || list[0].SpeedLimitDownload != client.SpeedLimitDownload {
+		t.Fatalf("listed speed limits = upload %d download %d, want upload %d download %d",
+			list[0].SpeedLimitUpload, list[0].SpeedLimitDownload, client.SpeedLimitUpload, client.SpeedLimitDownload)
+	}
+
+	settings, err := json.Marshal(map[string][]model.Client{"clients": list})
+	if err != nil {
+		t.Fatalf("marshal settings: %v", err)
+	}
+	var raw struct {
+		Clients []map[string]any `json:"clients"`
+	}
+	if err := json.Unmarshal(settings, &raw); err != nil {
+		t.Fatalf("unmarshal settings: %v", err)
+	}
+	if got := raw.Clients[0]["speedLimitUpload"]; got != float64(client.SpeedLimitUpload) {
+		t.Fatalf("settings.clients speedLimitUpload = %v, want %d", got, client.SpeedLimitUpload)
+	}
+	if got := raw.Clients[0]["speedLimitDownload"]; got != float64(client.SpeedLimitDownload) {
+		t.Fatalf("settings.clients speedLimitDownload = %v, want %d", got, client.SpeedLimitDownload)
 	}
 }
 

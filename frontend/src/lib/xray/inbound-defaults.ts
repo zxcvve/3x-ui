@@ -62,12 +62,16 @@ function clientBase(seed: ClientBaseSeed = {}): ClientBase {
 export interface VlessClientSeed extends ClientBaseSeed {
   id?: string;
   flow?: VlessClient['flow'];
+  speedLimitUpload?: number;
+  speedLimitDownload?: number;
 }
 
 export function createDefaultVlessClient(seed: VlessClientSeed = {}): VlessClient {
   return {
     id: seed.id ?? RandomUtil.randomUUID(),
     flow: seed.flow ?? '',
+    speedLimitUpload: seed.speedLimitUpload ?? 0,
+    speedLimitDownload: seed.speedLimitDownload ?? 0,
     ...clientBase(seed),
   };
 }

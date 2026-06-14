@@ -42,6 +42,8 @@ function emptyForm(): FormState {
     flow: '',
     limitIp: 0,
     totalGB: 0,
+    speedLimitUpload: 0,
+    speedLimitDownload: 0,
     expiryTime: 0,
     reset: 0,
     inboundIds: [],
@@ -83,9 +85,22 @@ export default function ClientBulkAddModal({
     return ids;
   }, [inbounds]);
 
+  const vlessIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const row of inbounds || []) {
+      if (row?.protocol === 'vless') ids.add(row.id);
+    }
+    return ids;
+  }, [inbounds]);
+
   const showFlow = useMemo(
     () => (form.inboundIds || []).some((id) => flowCapableIds.has(id)),
     [form.inboundIds, flowCapableIds],
+  );
+
+  const showSpeedLimits = useMemo(
+    () => (form.inboundIds || []).some((id) => vlessIds.has(id)),
+    [form.inboundIds, vlessIds],
   );
 
   const ss2022Method = useMemo(() => {
@@ -167,6 +182,8 @@ export default function ClientBulkAddModal({
           auth: RandomUtil.randomLowerAndNum(16),
           flow: showFlow ? (form.flow || '') : '',
           totalGB: Math.round((form.totalGB || 0) * SizeFormatter.ONE_GB),
+          speedLimitUpload: showSpeedLimits ? Number(form.speedLimitUpload) || 0 : 0,
+          speedLimitDownload: showSpeedLimits ? Number(form.speedLimitDownload) || 0 : 0,
           expiryTime: form.expiryTime,
           reset: Number(form.reset) || 0,
           limitIp: Number(form.limitIp) || 0,
@@ -317,6 +334,27 @@ export default function ClientBulkAddModal({
           <Form.Item label={t('pages.clients.totalGB')}>
             <InputNumber value={form.totalGB} min={0} step={1} onChange={(v) => update('totalGB', Number(v) || 0)} />
           </Form.Item>
+
+          {showSpeedLimits && (
+            <>
+              <Form.Item label={t('pages.clients.speedLimitUpload')} tooltip={t('pages.clients.speedLimitBytesDesc')}>
+                <InputNumber
+                  value={form.speedLimitUpload}
+                  min={0}
+                  step={1024}
+                  onChange={(v) => update('speedLimitUpload', Number(v) || 0)}
+                />
+              </Form.Item>
+              <Form.Item label={t('pages.clients.speedLimitDownload')} tooltip={t('pages.clients.speedLimitBytesDesc')}>
+                <InputNumber
+                  value={form.speedLimitDownload}
+                  min={0}
+                  step={1024}
+                  onChange={(v) => update('speedLimitDownload', Number(v) || 0)}
+                />
+              </Form.Item>
+            </>
+          )}
 
           <Form.Item label={t('pages.clients.delayedStart')}>
             <Switch
