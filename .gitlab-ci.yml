@@ -1,7 +1,9 @@
 include:
+  - local: ci/binary.yml
   - local: ci/docker.yml
 
 stages:
+  - binary
   - docker
 
 workflow:

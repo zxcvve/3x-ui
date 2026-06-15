@@ -1,11 +1,10 @@
-variables:
-  DOCKER_BUILDKIT: "1"
-  DOCKER_DRIVER: overlay2
-  DOCKER_HOST: tcp://docker:2375
-  DOCKER_TLS_CERTDIR: ""
-
 .docker-buildx:
   image: docker:27.5.1
+  variables:
+    DOCKER_BUILDKIT: "1"
+    DOCKER_DRIVER: overlay2
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
   services:
     - name: docker:27.5.1-dind
       command: ["--tls=false"]
@@ -19,6 +18,9 @@ variables:
 docker:image:
   extends: .docker-buildx
   stage: docker
+  needs:
+    - job: binary:amd64
+      artifacts: true
   rules:
     - if: $CI_PIPELINE_SOURCE == "web"
       when: manual
@@ -27,7 +29,6 @@ docker:image:
         - Dockerfile
         - .dockerignore
         - DockerEntrypoint.sh
-        - DockerInit.sh
         - docker-compose.yml
         - go.mod
         - go.sum
@@ -40,7 +41,6 @@ docker:image:
         - Dockerfile
         - .dockerignore
         - DockerEntrypoint.sh
-        - DockerInit.sh
         - docker-compose.yml
         - go.mod
         - go.sum
@@ -51,6 +51,7 @@ docker:image:
   script:
     - |
       set -eu
+      tar -xzf x-ui-linux-amd64.tar.gz
 
       if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
         docker buildx build \

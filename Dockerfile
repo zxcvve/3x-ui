@@ -1,36 +1,4 @@
 # ========================================================
-# Stage: Frontend (Vite)
-# ========================================================
-FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend
-WORKDIR /src/frontend
-COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci
-COPY frontend/ ./
-COPY internal/web/translation /src/internal/web/translation
-RUN npm run build
-
-# ========================================================
-# Stage: Builder
-# ========================================================
-FROM golang:1.26-alpine AS builder
-WORKDIR /app
-ARG TARGETARCH
-
-RUN apk --no-cache --update add \
-  build-base \
-  gcc \
-  curl \
-  unzip
-
-COPY . .
-COPY --from=frontend /src/internal/web/dist ./internal/web/dist
-
-ENV CGO_ENABLED=1
-ENV CGO_CFLAGS="-D_LARGEFILE64_SOURCE"
-RUN go build -ldflags "-w -s" -o build/x-ui main.go
-RUN ./DockerInit.sh "$TARGETARCH"
-
-# ========================================================
 # Stage: Final Image of 3x-ui
 # ========================================================
 FROM alpine
@@ -45,10 +13,9 @@ RUN apk add --no-cache --update \
   curl \
   openssl
 
-COPY --from=builder /app/build/ /app/
-COPY --from=builder /app/DockerEntrypoint.sh /app/
-COPY --from=builder /app/x-ui.sh /usr/bin/x-ui
-COPY --from=builder /app/internal/web/translation /app/internal/web/translation
+COPY x-ui/ /app/
+COPY DockerEntrypoint.sh /app/
+COPY x-ui/x-ui.sh /usr/bin/x-ui
 
 
 # Configure fail2ban

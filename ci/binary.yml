@@ -1,0 +1,93 @@
+binary:amd64:
+  stage: binary
+  image: node:22-bookworm
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - Dockerfile
+        - .dockerignore
+        - DockerEntrypoint.sh
+        - docker-compose.yml
+        - go.mod
+        - go.sum
+        - "**/*.go"
+        - frontend/**/*
+        - internal/web/translation/**/*
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+.*$/
+    - if: $CI_COMMIT_BRANCH
+      changes:
+        - Dockerfile
+        - .dockerignore
+        - DockerEntrypoint.sh
+        - docker-compose.yml
+        - go.mod
+        - go.sum
+        - "**/*.go"
+        - frontend/**/*
+        - internal/web/translation/**/*
+    - when: never
+  before_script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends build-essential ca-certificates curl file git musl-tools tar unzip wget
+    - GO_VERSION="$(awk '/^go / { print $2; exit }' go.mod)"
+    - curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go.tgz
+    - rm -rf /usr/local/go
+    - tar -C /usr/local -xzf /tmp/go.tgz
+    - export PATH="/usr/local/go/bin:$PATH"
+    - go version
+    - node --version
+    - npm --version
+  script:
+    - |
+      set -eu
+      export PATH="/usr/local/go/bin:$PATH"
+
+      npm ci --prefix frontend
+      npm run build --prefix frontend
+
+      export CGO_ENABLED=1
+      export GOOS=linux
+      export GOARCH=amd64
+      export CC=musl-gcc
+      export CGO_CFLAGS="-D_LARGEFILE64_SOURCE"
+      go build -ldflags "-w -s -linkmode external -extldflags '-static'" -o xui-release -v main.go
+      file xui-release
+      ldd xui-release || echo "Static binary confirmed"
+
+      mkdir x-ui
+      cp xui-release x-ui/
+      cp x-ui.service.debian x-ui/
+      cp x-ui.service.arch x-ui/
+      cp x-ui.service.rhel x-ui/
+      cp x-ui.sh x-ui/
+      mv x-ui/xui-release x-ui/x-ui
+      mkdir x-ui/bin
+      cd x-ui/bin
+
+      XRAY_URL="https://github.com/XTLS/Xray-core/releases/download/v26.6.1/"
+      wget -q "${XRAY_URL}Xray-linux-64.zip"
+      unzip Xray-linux-64.zip
+      rm -f Xray-linux-64.zip geoip.dat geosite.dat
+      mv xray xray-linux-amd64
+
+      wget -q https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat
+      wget -q https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat
+      wget -q -O geoip_IR.dat https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geoip.dat
+      wget -q -O geosite_IR.dat https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geosite.dat
+      wget -q -O geoip_RU.dat https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat
+      wget -q -O geosite_RU.dat https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat
+
+      MTG_VER="2.2.8"
+      wget -q "https://github.com/9seconds/mtg/releases/download/v${MTG_VER}/mtg-${MTG_VER}-linux-amd64.tar.gz"
+      tar -xzf "mtg-${MTG_VER}-linux-amd64.tar.gz"
+      mv "mtg-${MTG_VER}-linux-amd64/mtg" mtg-linux-amd64 2>/dev/null || mv mtg mtg-linux-amd64
+      rm -rf "mtg-${MTG_VER}-linux-amd64" "mtg-${MTG_VER}-linux-amd64.tar.gz"
+
+      cd ../..
+      tar -zcvf x-ui-linux-amd64.tar.gz x-ui
+  artifacts:
+    name: x-ui-linux-amd64
+    paths:
+      - x-ui-linux-amd64.tar.gz
+    expire_in: 30 days
