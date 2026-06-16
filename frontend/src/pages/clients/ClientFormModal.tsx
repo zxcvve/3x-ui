@@ -533,7 +533,7 @@ export default function ClientFormModal({
                             <InputNumber
                               value={form.speedLimitUpload}
                               min={0}
-                              step={1024}
+                              step={1}
                               style={{ width: '100%' }}
                               onChange={(v) => update('speedLimitUpload', Number(v) || 0)}
                             />
@@ -547,7 +547,7 @@ export default function ClientFormModal({
                             <InputNumber
                               value={form.speedLimitDownload}
                               min={0}
-                              step={1024}
+                              step={1}
                               style={{ width: '100%' }}
                               onChange={(v) => update('speedLimitDownload', Number(v) || 0)}
                             />

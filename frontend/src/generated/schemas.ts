@@ -980,11 +980,11 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "speedLimitDownload": {
-        "description": "Download speed limit in bytes per second",
+        "description": "Download speed limit in megabits per second",
         "type": "integer"
       },
       "speedLimitUpload": {
-        "description": "Upload speed limit in bytes per second",
+        "description": "Upload speed limit in megabits per second",
         "type": "integer"
       },
       "subId": {

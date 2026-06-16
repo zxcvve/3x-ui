@@ -163,8 +163,8 @@ func TestGetXrayConfig_IncludesVlessSpeedLimits(t *testing.T) {
 		Email:              "limited-config@example.com",
 		ID:                 "ce8d33df-3a64-4f10-8f9b-91c3a8e0c005",
 		Enable:             true,
-		SpeedLimitUpload:   1024,
-		SpeedLimitDownload: 2048,
+		SpeedLimitUpload:   8,
+		SpeedLimitDownload: 16,
 	}
 	clientSvc := ClientService{}
 	if err := clientSvc.SyncInbound(nil, vless.Id, []model.Client{client}); err != nil {
@@ -196,11 +196,13 @@ func TestGetXrayConfig_IncludesVlessSpeedLimits(t *testing.T) {
 	if found == nil {
 		t.Fatalf("generated config did not include inbound %q", vless.Tag)
 	}
-	if got := found["speedLimitUpload"]; got != float64(client.SpeedLimitUpload) {
-		t.Fatalf("generated speedLimitUpload = %v, want %d", got, client.SpeedLimitUpload)
+	wantUpload := float64(1000000)
+	if got := found["speedLimitUpload"]; got != wantUpload {
+		t.Fatalf("generated speedLimitUpload = %v, want %.0f", got, wantUpload)
 	}
-	if got := found["speedLimitDownload"]; got != float64(client.SpeedLimitDownload) {
-		t.Fatalf("generated speedLimitDownload = %v, want %d", got, client.SpeedLimitDownload)
+	wantDownload := float64(2000000)
+	if got := found["speedLimitDownload"]; got != wantDownload {
+		t.Fatalf("generated speedLimitDownload = %v, want %.0f", got, wantDownload)
 	}
 }
 

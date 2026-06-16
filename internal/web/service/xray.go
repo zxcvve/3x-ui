@@ -26,6 +26,8 @@ var (
 	result            string
 )
 
+const bytesPerMegabit = 125000
+
 // XrayService provides business logic for Xray process management.
 // It handles starting, stopping, restarting Xray, and managing its configuration.
 type XrayService struct {
@@ -173,10 +175,10 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 					entry["flow"] = flow
 				}
 				if c.SpeedLimitUpload > 0 {
-					entry["speedLimitUpload"] = c.SpeedLimitUpload
+					entry["speedLimitUpload"] = speedLimitMbpsToBytesPerSecond(c.SpeedLimitUpload)
 				}
 				if c.SpeedLimitDownload > 0 {
-					entry["speedLimitDownload"] = c.SpeedLimitDownload
+					entry["speedLimitDownload"] = speedLimitMbpsToBytesPerSecond(c.SpeedLimitDownload)
 				}
 				if c.Reverse != nil {
 					entry["reverse"] = c.Reverse
@@ -753,6 +755,14 @@ func (s *XrayService) TestRoute(req xray.RouteTestRequest) (*xray.RouteTestResul
 	}
 	defer s.xrayAPI.Close()
 	return s.xrayAPI.TestRoute(req)
+}
+
+func speedLimitMbpsToBytesPerSecond(mbps uint64) uint64 {
+	maxUint := ^uint64(0)
+	if mbps > maxUint/bytesPerMegabit {
+		return maxUint
+	}
+	return mbps * bytesPerMegabit
 }
 
 // RestartXray reconciles the running Xray process with the current desired

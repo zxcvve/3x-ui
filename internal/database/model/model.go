@@ -545,8 +545,8 @@ type Client struct {
 	Email              string         `json:"email"`                                        // Client email identifier
 	LimitIP            int            `json:"limitIp"`                                      // IP limit for this client
 	TotalGB            int64          `json:"totalGB" form:"totalGB"`                       // Total traffic limit in GB
-	SpeedLimitUpload   uint64         `json:"speedLimitUpload" form:"speedLimitUpload"`     // Upload speed limit in bytes per second
-	SpeedLimitDownload uint64         `json:"speedLimitDownload" form:"speedLimitDownload"` // Download speed limit in bytes per second
+	SpeedLimitUpload   uint64         `json:"speedLimitUpload" form:"speedLimitUpload"`     // Upload speed limit in megabits per second
+	SpeedLimitDownload uint64         `json:"speedLimitDownload" form:"speedLimitDownload"` // Download speed limit in megabits per second
 	ExpiryTime         int64          `json:"expiryTime" form:"expiryTime"`                 // Expiration timestamp
 	Enable             bool           `json:"enable" form:"enable"`                         // Whether the client is enabled
 	TgID               int64          `json:"tgId" form:"tgId"`                             // Telegram user ID for notifications
