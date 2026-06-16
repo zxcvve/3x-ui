@@ -172,6 +172,12 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 				if flow != "" {
 					entry["flow"] = flow
 				}
+				if c.SpeedLimitUpload > 0 {
+					entry["speedLimitUpload"] = c.SpeedLimitUpload
+				}
+				if c.SpeedLimitDownload > 0 {
+					entry["speedLimitDownload"] = c.SpeedLimitDownload
+				}
 				if c.Reverse != nil {
 					entry["reverse"] = c.Reverse
 				}

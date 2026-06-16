@@ -138,6 +138,72 @@ func TestSyncInbound_PreservesVlessSpeedLimits(t *testing.T) {
 	}
 }
 
+func TestGetXrayConfig_IncludesVlessSpeedLimits(t *testing.T) {
+	dbDir := t.TempDir()
+	t.Setenv("XUI_DB_FOLDER", dbDir)
+	if err := database.InitDB(filepath.Join(dbDir, "x-ui.db")); err != nil {
+		t.Fatalf("InitDB: %v", err)
+	}
+	t.Cleanup(func() { _ = database.CloseDB() })
+
+	db := database.GetDB()
+
+	vless := &model.Inbound{
+		Tag:      "vless-limited-config",
+		Enable:   true,
+		Port:     10005,
+		Protocol: model.VLESS,
+		Settings: `{"clients":[],"decryption":"none"}`,
+	}
+	if err := db.Create(vless).Error; err != nil {
+		t.Fatalf("create vless inbound: %v", err)
+	}
+
+	client := model.Client{
+		Email:              "limited-config@example.com",
+		ID:                 "ce8d33df-3a64-4f10-8f9b-91c3a8e0c005",
+		Enable:             true,
+		SpeedLimitUpload:   1024,
+		SpeedLimitDownload: 2048,
+	}
+	clientSvc := ClientService{}
+	if err := clientSvc.SyncInbound(nil, vless.Id, []model.Client{client}); err != nil {
+		t.Fatalf("SyncInbound: %v", err)
+	}
+
+	cfg, err := (&XrayService{}).GetXrayConfig()
+	if err != nil {
+		t.Fatalf("GetXrayConfig: %v", err)
+	}
+
+	var found map[string]any
+	for _, inbound := range cfg.InboundConfigs {
+		if inbound.Tag != vless.Tag {
+			continue
+		}
+		var settings struct {
+			Clients []map[string]any `json:"clients"`
+		}
+		if err := json.Unmarshal(inbound.Settings, &settings); err != nil {
+			t.Fatalf("unmarshal inbound settings: %v", err)
+		}
+		if len(settings.Clients) != 1 {
+			t.Fatalf("expected 1 generated client, got %d", len(settings.Clients))
+		}
+		found = settings.Clients[0]
+		break
+	}
+	if found == nil {
+		t.Fatalf("generated config did not include inbound %q", vless.Tag)
+	}
+	if got := found["speedLimitUpload"]; got != float64(client.SpeedLimitUpload) {
+		t.Fatalf("generated speedLimitUpload = %v, want %d", got, client.SpeedLimitUpload)
+	}
+	if got := found["speedLimitDownload"]; got != float64(client.SpeedLimitDownload) {
+		t.Fatalf("generated speedLimitDownload = %v, want %d", got, client.SpeedLimitDownload)
+	}
+}
+
 func TestSyncInbound_AllowsClearingFlow(t *testing.T) {
 	dbDir := t.TempDir()
 	t.Setenv("XUI_DB_FOLDER", dbDir)
