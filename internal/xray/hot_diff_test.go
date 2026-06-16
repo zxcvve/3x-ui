@@ -76,6 +76,25 @@ func TestComputeHotDiff_FormattingOnlyChangeIsEmptyDiff(t *testing.T) {
 	}
 }
 
+func TestComputeHotDiff_VlessSpeedLimitChangeNeedsRestart(t *testing.T) {
+	oldCfg := makeHotConfig()
+	newCfg := makeHotConfig()
+	newCfg.InboundConfigs[1].Settings = json_util.RawMessage(`{"clients":[{"id":"ce8d33df-3a64-4f10-8f9b-91c3a8e0c101","email":"limited@example.com","speedLimitDownload":1024}]}`)
+
+	if _, ok := ComputeHotDiff(oldCfg, newCfg); ok {
+		t.Fatal("vless speed-limit changes must force a process restart")
+	}
+
+	oldCfg = makeHotConfig()
+	oldCfg.InboundConfigs[1].Settings = json_util.RawMessage(`{"clients":[{"id":"ce8d33df-3a64-4f10-8f9b-91c3a8e0c101","email":"limited@example.com","speedLimitDownload":1024}]}`)
+	newCfg = makeHotConfig()
+	newCfg.InboundConfigs[1].Settings = json_util.RawMessage(`{"clients":[{"id":"ce8d33df-3a64-4f10-8f9b-91c3a8e0c101","email":"limited@example.com","speedLimitDownload":2048}]}`)
+
+	if _, ok := ComputeHotDiff(oldCfg, newCfg); ok {
+		t.Fatal("updating vless speed limits must force a process restart")
+	}
+}
+
 func TestComputeHotDiff_CanonicalEquality(t *testing.T) {
 	// Key reorder in a static section (the DNS editor rebuilds the object on
 	// save) must not read as a change.

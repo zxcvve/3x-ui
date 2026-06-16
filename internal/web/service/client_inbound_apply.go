@@ -343,14 +343,19 @@ func (s *ClientService) addInboundClient(inboundSvc *InboundService, data *model
 				if oldInbound.Protocol == "shadowsocks" {
 					cipher = oldSettings["method"].(string)
 				}
+				if vlessClientHasSpeedLimit(oldInbound, client) {
+					needRestart = true
+				}
 				err1 := rt.AddUser(context.Background(), oldInbound, map[string]any{
-					"email":    client.Email,
-					"id":       client.ID,
-					"auth":     client.Auth,
-					"security": client.Security,
-					"flow":     client.Flow,
-					"password": client.Password,
-					"cipher":   cipher,
+					"email":              client.Email,
+					"id":                 client.ID,
+					"auth":               client.Auth,
+					"security":           client.Security,
+					"flow":               client.Flow,
+					"password":           client.Password,
+					"cipher":             cipher,
+					"speedLimitUpload":   client.SpeedLimitUpload,
+					"speedLimitDownload": client.SpeedLimitDownload,
 				})
 				if err1 == nil {
 					logger.Debug("Client added on", rt.Name(), ":", client.Email)
@@ -620,14 +625,19 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 					if oldInbound.Protocol == "shadowsocks" {
 						cipher = oldSettings["method"].(string)
 					}
+					if vlessSpeedLimitChanged(oldInbound, oldClients[clientIndex], clients[0]) {
+						needRestart = true
+					}
 					err1 := rt.AddUser(context.Background(), oldInbound, map[string]any{
-						"email":    clients[0].Email,
-						"id":       clients[0].ID,
-						"security": clients[0].Security,
-						"flow":     clients[0].Flow,
-						"auth":     clients[0].Auth,
-						"password": clients[0].Password,
-						"cipher":   cipher,
+						"email":              clients[0].Email,
+						"id":                 clients[0].ID,
+						"security":           clients[0].Security,
+						"flow":               clients[0].Flow,
+						"auth":               clients[0].Auth,
+						"password":           clients[0].Password,
+						"cipher":             cipher,
+						"speedLimitUpload":   clients[0].SpeedLimitUpload,
+						"speedLimitDownload": clients[0].SpeedLimitDownload,
 					})
 					if err1 == nil {
 						logger.Debug("Client edited on", rt.Name(), ":", clients[0].Email)
@@ -659,6 +669,19 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 		return false, err
 	}
 	return needRestart, nil
+}
+
+func vlessSpeedLimitChanged(inbound *model.Inbound, oldClient, newClient model.Client) bool {
+	return inbound != nil &&
+		inbound.Protocol == model.VLESS &&
+		(oldClient.SpeedLimitUpload != newClient.SpeedLimitUpload ||
+			oldClient.SpeedLimitDownload != newClient.SpeedLimitDownload)
+}
+
+func vlessClientHasSpeedLimit(inbound *model.Inbound, client model.Client) bool {
+	return inbound != nil &&
+		inbound.Protocol == model.VLESS &&
+		(client.SpeedLimitUpload > 0 || client.SpeedLimitDownload > 0)
 }
 
 func (s *ClientService) DelInboundClientByEmail(inboundSvc *InboundService, inboundId int, email string, keepTraffic bool) (bool, error) {

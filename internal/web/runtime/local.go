@@ -102,12 +102,14 @@ func (l *Local) AddClient(ctx context.Context, ib *model.Inbound, client model.C
 		return nil
 	}
 	user := map[string]any{
-		"email":    client.Email,
-		"id":       client.ID,
-		"security": client.Security,
-		"flow":     client.Flow,
-		"auth":     client.Auth,
-		"password": client.Password,
+		"email":              client.Email,
+		"id":                 client.ID,
+		"security":           client.Security,
+		"flow":               client.Flow,
+		"auth":               client.Auth,
+		"password":           client.Password,
+		"speedLimitUpload":   client.SpeedLimitUpload,
+		"speedLimitDownload": client.SpeedLimitDownload,
 	}
 	return l.AddUser(ctx, ib, user)
 }
@@ -135,12 +137,14 @@ func (l *Local) UpdateUser(ctx context.Context, ib *model.Inbound, oldEmail stri
 		return nil
 	}
 	user := map[string]any{
-		"email":    payload.Email,
-		"id":       payload.ID,
-		"security": payload.Security,
-		"flow":     payload.Flow,
-		"auth":     payload.Auth,
-		"password": payload.Password,
+		"email":              payload.Email,
+		"id":                 payload.ID,
+		"security":           payload.Security,
+		"flow":               payload.Flow,
+		"auth":               payload.Auth,
+		"password":           payload.Password,
+		"speedLimitUpload":   payload.SpeedLimitUpload,
+		"speedLimitDownload": payload.SpeedLimitDownload,
 	}
 	return l.AddUser(ctx, ib, user)
 }

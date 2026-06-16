@@ -530,14 +530,19 @@ func (s *InboundService) resetClientTrafficLocked(id int, clientEmail string) (b
 					}
 					cipher = oldSettings["method"].(string)
 				}
+				if inbound.NodeID == nil && vlessClientHasSpeedLimit(inbound, client) {
+					needRestart = true
+				}
 				err1 := rt.AddUser(context.Background(), inbound, map[string]any{
-					"email":    client.Email,
-					"id":       client.ID,
-					"auth":     client.Auth,
-					"security": client.Security,
-					"flow":     client.Flow,
-					"password": client.Password,
-					"cipher":   cipher,
+					"email":              client.Email,
+					"id":                 client.ID,
+					"auth":               client.Auth,
+					"security":           client.Security,
+					"flow":               client.Flow,
+					"password":           client.Password,
+					"cipher":             cipher,
+					"speedLimitUpload":   client.SpeedLimitUpload,
+					"speedLimitDownload": client.SpeedLimitDownload,
 				})
 				if err1 == nil {
 					logger.Debug("Client enabled on", rt.Name(), "due to reset traffic:", clientEmail)

@@ -108,6 +108,9 @@ func diffInbounds(oldCfg, newCfg *Config, diff *HotDiff) bool {
 		if oldIb.Tag == apiTag || oldIb.Tag == "api" {
 			return false
 		}
+		if inboundHasVlessSpeedLimit(oldIb) || (exists && inboundHasVlessSpeedLimit(newIb)) {
+			return false
+		}
 		diff.RemovedInboundTags = append(diff.RemovedInboundTags, oldIb.Tag)
 		if exists {
 			raw, err := json.Marshal(newIb)
@@ -125,6 +128,9 @@ func diffInbounds(oldCfg, newCfg *Config, diff *HotDiff) bool {
 		if newIb.Tag == apiTag || newIb.Tag == "api" {
 			return false
 		}
+		if inboundHasVlessSpeedLimit(newIb) {
+			return false
+		}
 		raw, err := json.Marshal(newIb)
 		if err != nil {
 			return false
@@ -132,6 +138,42 @@ func diffInbounds(oldCfg, newCfg *Config, diff *HotDiff) bool {
 		diff.AddedInbounds = append(diff.AddedInbounds, raw)
 	}
 	return true
+}
+
+func inboundHasVlessSpeedLimit(ib *InboundConfig) bool {
+	if ib == nil || ib.Protocol != "vless" {
+		return false
+	}
+	var settings struct {
+		Clients []map[string]any `json:"clients"`
+	}
+	if err := json.Unmarshal(ib.Settings, &settings); err != nil {
+		return false
+	}
+	for _, client := range settings.Clients {
+		if positiveJSONNumber(client["speedLimitUpload"]) || positiveJSONNumber(client["speedLimitDownload"]) {
+			return true
+		}
+	}
+	return false
+}
+
+func positiveJSONNumber(v any) bool {
+	switch n := v.(type) {
+	case json.Number:
+		i, err := n.Int64()
+		return err == nil && i > 0
+	case float64:
+		return n > 0
+	case int:
+		return n > 0
+	case int64:
+		return n > 0
+	case uint64:
+		return n > 0
+	default:
+		return false
+	}
 }
 
 // diffOutbounds fills diff with outbound removals/additions keyed by tag.
