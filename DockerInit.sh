@@ -32,9 +32,22 @@ case $1 in
         ;;
 esac
 MTG_VER="2.2.8"
+XRAY_VERSION="${XUI_XRAY_VERSION:-v26.6.1}"
+XRAY_ASSET_URL_TEMPLATE="${XUI_XRAY_ASSET_URL_TEMPLATE:-https://github.com/XTLS/Xray-core/releases/download/{tag}/Xray-{os}-{arch}.zip}"
+xray_asset_url() {
+    printf '%s' "$XRAY_ASSET_URL_TEMPLATE" \
+        | sed "s|{tag}|$XRAY_VERSION|g; s|{os}|linux|g; s|{arch}|$ARCH|g"
+}
+curl_with_auth() {
+    if [ -n "${XUI_DOWNLOAD_AUTH_HEADER:-}" ]; then
+        curl -H "$XUI_DOWNLOAD_AUTH_HEADER" "$@"
+    else
+        curl "$@"
+    fi
+}
 mkdir -p build/bin
 cd build/bin
-curl -sfLRO "https://github.com/XTLS/Xray-core/releases/download/v26.6.1/Xray-linux-${ARCH}.zip"
+curl_with_auth -sfLRo "Xray-linux-${ARCH}.zip" "$(xray_asset_url)"
 unzip "Xray-linux-${ARCH}.zip"
 rm -f "Xray-linux-${ARCH}.zip" geoip.dat geosite.dat
 mv xray "xray-linux-${FNAME}"

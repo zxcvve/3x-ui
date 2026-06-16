@@ -232,6 +232,8 @@ func panelSourceEnv() []string {
 		"XUI_RELEASE_API_URL",
 		"XUI_RELEASE_ASSET_URL_TEMPLATE",
 		"XUI_RAW_BASE_URL",
+		"XUI_XRAY_RELEASE_API_URL",
+		"XUI_XRAY_ASSET_URL_TEMPLATE",
 		"XUI_DOWNLOAD_AUTH_HEADER",
 	}
 	out := make([]string, 0, len(keys))

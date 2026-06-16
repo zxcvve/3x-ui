@@ -65,8 +65,16 @@ binary:amd64:
       mkdir x-ui/bin
       cd x-ui/bin
 
-      XRAY_URL="https://github.com/XTLS/Xray-core/releases/download/v26.6.1/"
-      wget -q "${XRAY_URL}Xray-linux-64.zip"
+      XRAY_VERSION="${XUI_XRAY_VERSION:-v26.6.1}"
+      XRAY_ASSET_URL_TEMPLATE="${XUI_XRAY_ASSET_URL_TEMPLATE:-https://github.com/XTLS/Xray-core/releases/download/{tag}/Xray-{os}-{arch}.zip}"
+      XRAY_URL="${XRAY_ASSET_URL_TEMPLATE//\{tag\}/${XRAY_VERSION}}"
+      XRAY_URL="${XRAY_URL//\{os\}/linux}"
+      XRAY_URL="${XRAY_URL//\{arch\}/64}"
+      if [ -n "${XUI_DOWNLOAD_AUTH_HEADER:-}" ]; then
+        curl -fsSL -H "${XUI_DOWNLOAD_AUTH_HEADER}" "${XRAY_URL}" -o Xray-linux-64.zip
+      else
+        curl -fsSL "${XRAY_URL}" -o Xray-linux-64.zip
+      fi
       unzip Xray-linux-64.zip
       rm -f Xray-linux-64.zip geoip.dat geosite.dat
       mv xray xray-linux-amd64

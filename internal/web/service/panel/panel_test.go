@@ -64,6 +64,8 @@ func TestPanelSourceEnvIncludesConfiguredReleaseSource(t *testing.T) {
 	t.Setenv("XUI_RELEASE_API_URL", "https://gitlab.example/api")
 	t.Setenv("XUI_RELEASE_ASSET_URL_TEMPLATE", "https://gitlab.example/{tag}/{arch}.tar.gz")
 	t.Setenv("XUI_RAW_BASE_URL", "https://gitlab.example/raw")
+	t.Setenv("XUI_XRAY_RELEASE_API_URL", "https://gitlab.example/xray/releases")
+	t.Setenv("XUI_XRAY_ASSET_URL_TEMPLATE", "https://gitlab.example/xray/{tag}/Xray-{os}-{arch}.zip")
 	t.Setenv("XUI_DOWNLOAD_AUTH_HEADER", "PRIVATE-TOKEN: test-token")
 
 	got := strings.Join(panelSourceEnv(), "\n")
@@ -71,6 +73,8 @@ func TestPanelSourceEnvIncludesConfiguredReleaseSource(t *testing.T) {
 		"XUI_RELEASE_API_URL=https://gitlab.example/api",
 		"XUI_RELEASE_ASSET_URL_TEMPLATE=https://gitlab.example/{tag}/{arch}.tar.gz",
 		"XUI_RAW_BASE_URL=https://gitlab.example/raw",
+		"XUI_XRAY_RELEASE_API_URL=https://gitlab.example/xray/releases",
+		"XUI_XRAY_ASSET_URL_TEMPLATE=https://gitlab.example/xray/{tag}/Xray-{os}-{arch}.zip",
 		"XUI_DOWNLOAD_AUTH_HEADER=PRIVATE-TOKEN: test-token",
 	} {
 		if !strings.Contains(got, want) {

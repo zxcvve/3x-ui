@@ -83,18 +83,20 @@ curl_with_auth() {
 }
 
 write_xui_source_env() {
-    if [[ -z "${XUI_RELEASE_API_URL:-}" && -z "${XUI_RELEASE_ASSET_URL_TEMPLATE:-}" && -z "${XUI_RAW_BASE_URL:-}" && -z "${XUI_DOWNLOAD_AUTH_HEADER:-}" ]]; then
+    if [[ -z "${XUI_RELEASE_API_URL:-}" && -z "${XUI_RELEASE_ASSET_URL_TEMPLATE:-}" && -z "${XUI_RAW_BASE_URL:-}" && -z "${XUI_XRAY_RELEASE_API_URL:-}" && -z "${XUI_XRAY_ASSET_URL_TEMPLATE:-}" && -z "${XUI_DOWNLOAD_AUTH_HEADER:-}" ]]; then
         return 0
     fi
     local envfile
     envfile="$(xui_env_file_path)"
     install -d -m 755 "$(dirname "$envfile")"
     touch "$envfile"
-    sed -i '/^XUI_RELEASE_API_URL=/d; /^XUI_RELEASE_ASSET_URL_TEMPLATE=/d; /^XUI_RAW_BASE_URL=/d; /^XUI_DOWNLOAD_AUTH_HEADER=/d' "$envfile"
+    sed -i '/^XUI_RELEASE_API_URL=/d; /^XUI_RELEASE_ASSET_URL_TEMPLATE=/d; /^XUI_RAW_BASE_URL=/d; /^XUI_XRAY_RELEASE_API_URL=/d; /^XUI_XRAY_ASSET_URL_TEMPLATE=/d; /^XUI_DOWNLOAD_AUTH_HEADER=/d' "$envfile"
     {
         [[ -n "${XUI_RELEASE_API_URL:-}" ]] && printf 'XUI_RELEASE_API_URL=%q\n' "$XUI_RELEASE_API_URL"
         [[ -n "${XUI_RELEASE_ASSET_URL_TEMPLATE:-}" ]] && printf 'XUI_RELEASE_ASSET_URL_TEMPLATE=%q\n' "$XUI_RELEASE_ASSET_URL_TEMPLATE"
         [[ -n "${XUI_RAW_BASE_URL:-}" ]] && printf 'XUI_RAW_BASE_URL=%q\n' "$XUI_RAW_BASE_URL"
+        [[ -n "${XUI_XRAY_RELEASE_API_URL:-}" ]] && printf 'XUI_XRAY_RELEASE_API_URL=%q\n' "$XUI_XRAY_RELEASE_API_URL"
+        [[ -n "${XUI_XRAY_ASSET_URL_TEMPLATE:-}" ]] && printf 'XUI_XRAY_ASSET_URL_TEMPLATE=%q\n' "$XUI_XRAY_ASSET_URL_TEMPLATE"
         [[ -n "${XUI_DOWNLOAD_AUTH_HEADER:-}" ]] && printf 'XUI_DOWNLOAD_AUTH_HEADER=%q\n' "$XUI_DOWNLOAD_AUTH_HEADER"
     } >> "$envfile"
     chmod 600 "$envfile"

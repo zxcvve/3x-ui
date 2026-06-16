@@ -60,6 +60,8 @@ func TestBuildProvisionCommandUsesConfiguredSource(t *testing.T) {
 	t.Setenv("XUI_RELEASE_API_URL", "https://gitlab.example/api/v4/projects/1/releases/permalink/latest")
 	t.Setenv("XUI_RELEASE_ASSET_URL_TEMPLATE", "https://gitlab.example/group/project/-/releases/{tag}/downloads/x-ui-linux-{arch}.tar.gz")
 	t.Setenv("XUI_RAW_BASE_URL", "https://gitlab.example/group/project/-/raw/main")
+	t.Setenv("XUI_XRAY_RELEASE_API_URL", "https://gitlab.example/api/v4/projects/2/releases")
+	t.Setenv("XUI_XRAY_ASSET_URL_TEMPLATE", "https://gitlab.example/zxcvve/xray-core-throttle/-/releases/{tag}/downloads/Xray-{os}-{arch}.zip")
 	t.Setenv("XUI_DOWNLOAD_AUTH_HEADER", "PRIVATE-TOKEN: abc123")
 
 	cmd := buildProvisionCommand(&NodeProvisionRequest{
@@ -73,6 +75,10 @@ func TestBuildProvisionCommandUsesConfiguredSource(t *testing.T) {
 		"export XUI_RELEASE_API_URL='https://gitlab.example/api/v4/projects/1/releases/permalink/latest'",
 		"export XUI_RELEASE_ASSET_URL_TEMPLATE='https://gitlab.example/group/project/-/releases/{tag}/downloads/x-ui-linux-{arch}.tar.gz'",
 		"export XUI_RAW_BASE_URL='https://gitlab.example/group/project/-/raw/main'",
+		"export XUI_XRAY_RELEASE_API_URL='https://gitlab.example/api/v4/projects/2/releases'",
+		"export XUI_XRAY_ASSET_URL_TEMPLATE='https://gitlab.example/zxcvve/xray-core-throttle/-/releases/{tag}/downloads/Xray-{os}-{arch}.zip'",
+		"XUI_XRAY_RELEASE_API_URL='https://gitlab.example/api/v4/projects/2/releases'",
+		"XUI_XRAY_ASSET_URL_TEMPLATE='https://gitlab.example/zxcvve/xray-core-throttle/-/releases/{tag}/downloads/Xray-{os}-{arch}.zip'",
 		"export XUI_DOWNLOAD_AUTH_HEADER='PRIVATE-TOKEN: abc123'",
 		"XUI_DOWNLOAD_AUTH_HEADER='PRIVATE-TOKEN: abc123'",
 		"curl -H",

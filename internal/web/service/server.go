@@ -109,7 +109,7 @@ type Status struct {
 	} `json:"appStats"`
 }
 
-// Release represents information about a software release from GitHub.
+// Release represents information about a software release from a release API.
 type Release struct {
 	TagName string `json:"tag_name"` // The tag name of the release
 }
@@ -143,9 +143,10 @@ type cachedXrayVersions struct {
 	fetchedAt time.Time
 }
 
-// xrayVersionsCacheTTL bounds how often /getXrayVersion hits GitHub. The list
-// is purely informational (rendered in the "switch Xray version" picker) so a
-// quarter-hour staleness window is fine and saves the API budget.
+// xrayVersionsCacheTTL bounds how often /getXrayVersion hits the release
+// source. The list is purely informational (rendered in the "switch Xray
+// version" picker) so a quarter-hour staleness window is fine and saves the API
+// budget.
 const xrayVersionsCacheTTL = 15 * time.Minute
 
 // allowedHistoryBuckets is the bucket-second whitelist for time-series
@@ -685,15 +686,20 @@ func (s *ServerService) sampleCPUUtilization() (float64, error) {
 const (
 	maxXrayArchiveBytes = 200 << 20
 	maxXrayBinaryBytes  = 200 << 20
+
+	defaultXrayReleaseAPIURL       = "https://api.github.com/repos/XTLS/Xray-core/releases"
+	defaultXrayAssetURLTemplate    = "https://github.com/XTLS/Xray-core/releases/download/{tag}/Xray-{os}-{arch}.zip"
+	defaultXrayReleaseErrorContext = "release API"
 )
 
 func (s *ServerService) GetXrayVersions() ([]string, error) {
-	const (
-		XrayURL    = "https://api.github.com/repos/XTLS/Xray-core/releases"
-		bufferSize = 8192
-	)
+	return fetchXrayVersions(s.settingService.NewProxiedHTTPClient(10*time.Second), xrayReleaseAPIURL())
+}
 
-	resp, err := s.settingService.NewProxiedHTTPClient(10 * time.Second).Get(XrayURL)
+func fetchXrayVersions(client *http.Client, releaseAPIURL string) ([]string, error) {
+	const bufferSize = 8192
+
+	resp, err := xrayHTTPGet(client, releaseAPIURL)
 	if err != nil {
 		return nil, err
 	}
@@ -706,9 +712,9 @@ func (s *ServerService) GetXrayVersions() ([]string, error) {
 			Message string `json:"message"`
 		}
 		if json.Unmarshal(bodyBytes, &errorResponse) == nil && errorResponse.Message != "" {
-			return nil, fmt.Errorf("GitHub API error: %s", errorResponse.Message)
+			return nil, fmt.Errorf("%s error: %s", defaultXrayReleaseErrorContext, errorResponse.Message)
 		}
-		return nil, fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, resp.Status)
+		return nil, fmt.Errorf("%s returned status %d: %s", defaultXrayReleaseErrorContext, resp.StatusCode, resp.Status)
 	}
 
 	buffer := bytes.NewBuffer(make([]byte, bufferSize))
@@ -744,6 +750,13 @@ func (s *ServerService) GetXrayVersions() ([]string, error) {
 	return versions, nil
 }
 
+func xrayReleaseAPIURL() string {
+	if v := strings.TrimSpace(os.Getenv("XUI_XRAY_RELEASE_API_URL")); v != "" {
+		return v
+	}
+	return defaultXrayReleaseAPIURL
+}
+
 func (s *ServerService) StopXrayService() error {
 	err := s.xrayService.StopXray()
 	if err != nil {
@@ -763,37 +776,10 @@ func (s *ServerService) RestartXrayService() error {
 }
 
 func (s *ServerService) downloadXRay(version string) (string, error) {
-	osName := runtime.GOOS
-	arch := runtime.GOARCH
-
-	switch osName {
-	case "darwin":
-		osName = "macos"
-	case "windows":
-		osName = "windows"
-	}
-
-	switch arch {
-	case "amd64":
-		arch = "64"
-	case "arm64":
-		arch = "arm64-v8a"
-	case "armv7":
-		arch = "arm32-v7a"
-	case "armv6":
-		arch = "arm32-v6"
-	case "armv5":
-		arch = "arm32-v5"
-	case "386":
-		arch = "32"
-	case "s390x":
-		arch = "s390x"
-	}
-
-	fileName := fmt.Sprintf("Xray-%s-%s.zip", osName, arch)
-	url := fmt.Sprintf("https://github.com/XTLS/Xray-core/releases/download/%s/%s", version, fileName)
+	osName, arch := xrayAssetPlatform(runtime.GOOS, runtime.GOARCH)
+	url := xrayAssetURL(version, osName, arch)
 	client := s.settingService.NewProxiedHTTPClient(60 * time.Second)
-	resp, err := client.Get(url)
+	resp, err := xrayHTTPGet(client, url)
 	if err != nil {
 		return "", err
 	}
@@ -828,6 +814,62 @@ func (s *ServerService) downloadXRay(version string) (string, error) {
 
 	ok = true
 	return path, nil
+}
+
+func xrayAssetPlatform(goos, goarch string) (string, string) {
+	osName := goos
+	arch := goarch
+
+	switch osName {
+	case "darwin":
+		osName = "macos"
+	case "windows":
+		osName = "windows"
+	}
+
+	switch arch {
+	case "amd64":
+		arch = "64"
+	case "arm64":
+		arch = "arm64-v8a"
+	case "armv7":
+		arch = "arm32-v7a"
+	case "armv6":
+		arch = "arm32-v6"
+	case "armv5":
+		arch = "arm32-v5"
+	case "386":
+		arch = "32"
+	case "s390x":
+		arch = "s390x"
+	}
+	return osName, arch
+}
+
+func xrayAssetURL(tag, osName, arch string) string {
+	template := strings.TrimSpace(os.Getenv("XUI_XRAY_ASSET_URL_TEMPLATE"))
+	if template == "" {
+		template = defaultXrayAssetURLTemplate
+	}
+	template = strings.ReplaceAll(template, "{tag}", tag)
+	template = strings.ReplaceAll(template, "{os}", osName)
+	template = strings.ReplaceAll(template, "{arch}", arch)
+	return template
+}
+
+func xrayHTTPGet(client *http.Client, url string) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if header := strings.TrimSpace(os.Getenv("XUI_DOWNLOAD_AUTH_HEADER")); header != "" {
+		name, value, ok := strings.Cut(header, ":")
+		if !ok || strings.TrimSpace(name) == "" {
+			return nil, fmt.Errorf("invalid XUI_DOWNLOAD_AUTH_HEADER")
+		}
+		req.Header.Set(strings.TrimSpace(name), strings.TrimSpace(value))
+	}
+	return client.Do(req)
 }
 
 func (s *ServerService) UpdateXray(version string) error {

@@ -101,6 +101,19 @@ When provisioning a node through the panel UI, the main panel passes these
 variables, including `XUI_DOWNLOAD_AUTH_HEADER`, through the SSH install command
 and the node persists them for its own future updates.
 
+Xray-core downloads can also be pointed at a private GitLab fork. This affects
+the panel's Xray version list/switch action and can also be used by build
+packaging scripts:
+
+```bash
+export XUI_XRAY_RELEASE_API_URL="https://gitlab.com/api/v4/projects/<project_id>/releases"
+export XUI_XRAY_ASSET_URL_TEMPLATE="https://gitlab.com/zxcvve/xray-core-throttle/-/releases/{tag}/downloads/Xray-{os}-{arch}.zip"
+```
+
+`{os}` and `{arch}` use Xray's upstream asset names, for example
+`Xray-linux-64.zip` on Linux amd64. If the Xray fork is private, the same
+`XUI_DOWNLOAD_AUTH_HEADER` is used for both the release API and asset download.
+
 ### Unattended install & cloud images
 
 The installer also runs **non-interactively** for cloud-init and golden images.
