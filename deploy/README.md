@@ -35,4 +35,13 @@ secure random / default):
 `XUI_SERVER_IP` (fallback IP for the displayed access URL when auto-detection fails),
 `XUI_DB_TYPE` (`sqlite`|`postgres`), `XUI_DB_DSN`.
 
+Private release/source downloads also support:
+
+`XUI_RELEASE_API_URL`, `XUI_RELEASE_ASSET_URL_TEMPLATE`, `XUI_RAW_BASE_URL`,
+`XUI_DOWNLOAD_AUTH_HEADER`.
+
+Use these when installing from a private GitLab release. The installer persists
+them into the x-ui service environment file so web auto-update and SSH node
+provisioning keep using the same source and auth header.
+
 The resulting credentials are written to `/etc/x-ui/install-result.env` (mode 600).

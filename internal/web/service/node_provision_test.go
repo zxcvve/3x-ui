@@ -44,6 +44,7 @@ func TestRedactProvisionOutput(t *testing.T) {
 		"XUI_USERNAME=admin",
 		"XUI_PASSWORD=secret",
 		"XUI_API_TOKEN=token",
+		"XUI_DOWNLOAD_AUTH_HEADER=PRIVATE-TOKEN: token",
 		"SSH_PRIVATE_KEY=key",
 	}, "\n"))
 	joined := strings.Join(lines, "\n")
@@ -52,6 +53,36 @@ func TestRedactProvisionOutput(t *testing.T) {
 	}
 	if !strings.Contains(joined, "XUI_USERNAME=admin") {
 		t.Fatalf("non-secret line missing: %s", joined)
+	}
+}
+
+func TestBuildProvisionCommandUsesConfiguredSource(t *testing.T) {
+	t.Setenv("XUI_RELEASE_API_URL", "https://gitlab.example/api/v4/projects/1/releases/permalink/latest")
+	t.Setenv("XUI_RELEASE_ASSET_URL_TEMPLATE", "https://gitlab.example/group/project/-/releases/{tag}/downloads/x-ui-linux-{arch}.tar.gz")
+	t.Setenv("XUI_RAW_BASE_URL", "https://gitlab.example/group/project/-/raw/main")
+	t.Setenv("XUI_DOWNLOAD_AUTH_HEADER", "PRIVATE-TOKEN: abc123")
+
+	cmd := buildProvisionCommand(&NodeProvisionRequest{
+		SSHUser:      "ubuntu",
+		SudoPassword: "sudo-secret",
+		SSLMode:      "none",
+		WebBasePath:  "panel",
+		PanelPort:    54321,
+	})
+	for _, want := range []string{
+		"export XUI_RELEASE_API_URL='https://gitlab.example/api/v4/projects/1/releases/permalink/latest'",
+		"export XUI_RELEASE_ASSET_URL_TEMPLATE='https://gitlab.example/group/project/-/releases/{tag}/downloads/x-ui-linux-{arch}.tar.gz'",
+		"export XUI_RAW_BASE_URL='https://gitlab.example/group/project/-/raw/main'",
+		"export XUI_DOWNLOAD_AUTH_HEADER='PRIVATE-TOKEN: abc123'",
+		"XUI_DOWNLOAD_AUTH_HEADER='PRIVATE-TOKEN: abc123'",
+		"curl -H",
+		"PRIVATE-TOKEN: abc123",
+		"https://gitlab.example/group/project/-/raw/main/install.sh",
+		"| bash",
+	} {
+		if !strings.Contains(cmd, want) {
+			t.Fatalf("buildProvisionCommand missing %q in:\n%s", want, cmd)
+		}
 	}
 }
 

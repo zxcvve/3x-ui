@@ -32,8 +32,9 @@ type PanelUpdateInfo struct {
 }
 
 const (
-	panelUpdaterURL      = "https://raw.githubusercontent.com/MHSanaei/3x-ui/main/update.sh"
-	maxPanelUpdaterBytes = 2 << 20
+	defaultPanelReleaseAPIURL = "https://api.github.com/repos/MHSanaei/3x-ui/releases/latest"
+	defaultPanelRawBaseURL    = "https://raw.githubusercontent.com/MHSanaei/3x-ui/main"
+	maxPanelUpdaterBytes      = 2 << 20
 )
 
 func (s *PanelService) RestartPanel(delay time.Duration) error {
@@ -90,15 +91,20 @@ func (s *PanelService) StartUpdate() error {
 
 	mainFolder, serviceFolder := resolveUpdateFolders()
 	updateScript := fmt.Sprintf("set -e; trap 'rm -f %s' EXIT; %s %s", shellQuote(scriptPath), shellQuote(bash), shellQuote(scriptPath))
+	sourceEnv := panelSourceEnv()
 
 	if systemdRun, err := exec.LookPath("systemd-run"); err == nil {
 		unitName := fmt.Sprintf("x-ui-web-update-%d", time.Now().Unix())
-		cmd := exec.Command(systemdRun,
+		args := []string{
 			"--unit", unitName,
-			"--setenv", "XUI_MAIN_FOLDER="+mainFolder,
-			"--setenv", "XUI_SERVICE="+serviceFolder,
-			bash, "-lc", updateScript,
-		)
+			"--setenv", "XUI_MAIN_FOLDER=" + mainFolder,
+			"--setenv", "XUI_SERVICE=" + serviceFolder,
+		}
+		for _, env := range sourceEnv {
+			args = append(args, "--setenv", env)
+		}
+		args = append(args, bash, "-lc", updateScript)
+		cmd := exec.Command(systemdRun, args...)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			output := strings.TrimSpace(string(out))
@@ -119,6 +125,7 @@ func (s *PanelService) StartUpdate() error {
 		"XUI_MAIN_FOLDER="+mainFolder,
 		"XUI_SERVICE="+serviceFolder,
 	)
+	cmd.Env = append(cmd.Env, sourceEnv...)
 	setDetachedProcess(cmd)
 	if err := cmd.Start(); err != nil {
 		_ = os.Remove(scriptPath)
@@ -133,7 +140,7 @@ func (s *PanelService) StartUpdate() error {
 
 func downloadPanelUpdater() (string, error) {
 	client := (&service.SettingService{}).NewProxiedHTTPClient(15 * time.Second)
-	resp, err := client.Get(panelUpdaterURL)
+	resp, err := panelHTTPGet(client, panelRawURL("update.sh"))
 	if err != nil {
 		return "", fmt.Errorf("download panel updater: %w", err)
 	}
@@ -171,13 +178,13 @@ func downloadPanelUpdater() (string, error) {
 
 func fetchLatestPanelVersion() (string, error) {
 	client := (&service.SettingService{}).NewProxiedHTTPClient(10 * time.Second)
-	resp, err := client.Get("https://api.github.com/repos/MHSanaei/3x-ui/releases/latest")
+	resp, err := panelHTTPGet(client, panelReleaseAPIURL())
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, resp.Status)
+		return "", fmt.Errorf("release API returned status %d: %s", resp.StatusCode, resp.Status)
 	}
 
 	var release service.Release
@@ -188,6 +195,52 @@ func fetchLatestPanelVersion() (string, error) {
 		return "", fmt.Errorf("latest panel release tag is empty")
 	}
 	return release.TagName, nil
+}
+
+func panelReleaseAPIURL() string {
+	if v := strings.TrimSpace(os.Getenv("XUI_RELEASE_API_URL")); v != "" {
+		return v
+	}
+	return defaultPanelReleaseAPIURL
+}
+
+func panelRawURL(path string) string {
+	base := strings.TrimRight(strings.TrimSpace(os.Getenv("XUI_RAW_BASE_URL")), "/")
+	if base == "" {
+		base = defaultPanelRawBaseURL
+	}
+	return base + "/" + strings.TrimLeft(path, "/")
+}
+
+func panelHTTPGet(client *http.Client, url string) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if header := strings.TrimSpace(os.Getenv("XUI_DOWNLOAD_AUTH_HEADER")); header != "" {
+		name, value, ok := strings.Cut(header, ":")
+		if !ok || strings.TrimSpace(name) == "" {
+			return nil, fmt.Errorf("invalid XUI_DOWNLOAD_AUTH_HEADER")
+		}
+		req.Header.Set(strings.TrimSpace(name), strings.TrimSpace(value))
+	}
+	return client.Do(req)
+}
+
+func panelSourceEnv() []string {
+	keys := []string{
+		"XUI_RELEASE_API_URL",
+		"XUI_RELEASE_ASSET_URL_TEMPLATE",
+		"XUI_RAW_BASE_URL",
+		"XUI_DOWNLOAD_AUTH_HEADER",
+	}
+	out := make([]string, 0, len(keys))
+	for _, key := range keys {
+		if value := os.Getenv(key); value != "" {
+			out = append(out, key+"="+value)
+		}
+	}
+	return out
 }
 
 func resolveUpdateFolders() (string, string) {

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -366,11 +367,15 @@ func buildProvisionCommand(req *NodeProvisionRequest) string {
 	writeExport("XUI_SSL_MODE", req.SSLMode)
 	writeExport("XUI_DOMAIN", req.Domain)
 	writeExport("XUI_ACME_EMAIL", req.ACMEEmail)
+	sourceValues := provisionSourceEnvValues()
+	for _, key := range provisionSourceEnvKeys() {
+		writeExport(key, sourceValues[key])
+	}
 	if req.PanelPort > 0 {
 		writeExport("XUI_PANEL_PORT", strconv.Itoa(req.PanelPort))
 	}
 	writeExport("XUI_WEB_BASE_PATH", req.WebBasePath)
-	installer := "curl -fsSL https://raw.githubusercontent.com/MHSanaei/3x-ui/main/install.sh | bash"
+	installer := provisionCurlCommand(provisionRawURL("install.sh")) + " | bash"
 	if req.SudoPassword != "" {
 		fmt.Fprintf(&b, "printf %%s\\\\n %s | sudo -S env%s bash -lc %s\n", shellQuote(req.SudoPassword), envArgs, shellQuote(installer))
 		b.WriteString("sudo cat /etc/x-ui/install-result.env\n")
@@ -393,6 +398,9 @@ func provisionEnvArgs(req *NodeProvisionRequest) string {
 		"XUI_ACME_EMAIL":     req.ACMEEmail,
 		"XUI_WEB_BASE_PATH":  req.WebBasePath,
 	}
+	for key, value := range provisionSourceEnvValues() {
+		values[key] = value
+	}
 	if req.PanelPort > 0 {
 		values["XUI_PANEL_PORT"] = strconv.Itoa(req.PanelPort)
 	}
@@ -404,6 +412,10 @@ func provisionEnvArgs(req *NodeProvisionRequest) string {
 		"XUI_ACME_EMAIL",
 		"XUI_PANEL_PORT",
 		"XUI_WEB_BASE_PATH",
+		"XUI_RELEASE_API_URL",
+		"XUI_RELEASE_ASSET_URL_TEMPLATE",
+		"XUI_RAW_BASE_URL",
+		"XUI_DOWNLOAD_AUTH_HEADER",
 	}
 	var b strings.Builder
 	for _, key := range order {
@@ -413,6 +425,46 @@ func provisionEnvArgs(req *NodeProvisionRequest) string {
 		}
 		fmt.Fprintf(&b, " %s=%s", key, shellQuote(value))
 	}
+	return b.String()
+}
+
+func provisionSourceEnvValues() map[string]string {
+	keys := provisionSourceEnvKeys()
+	values := make(map[string]string, len(keys))
+	for _, key := range keys {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			values[key] = value
+		}
+	}
+	return values
+}
+
+func provisionSourceEnvKeys() []string {
+	return []string{
+		"XUI_RELEASE_API_URL",
+		"XUI_RELEASE_ASSET_URL_TEMPLATE",
+		"XUI_RAW_BASE_URL",
+		"XUI_DOWNLOAD_AUTH_HEADER",
+	}
+}
+
+func provisionRawURL(path string) string {
+	base := strings.TrimRight(strings.TrimSpace(os.Getenv("XUI_RAW_BASE_URL")), "/")
+	if base == "" {
+		base = "https://raw.githubusercontent.com/MHSanaei/3x-ui/main"
+	}
+	return base + "/" + strings.TrimLeft(path, "/")
+}
+
+func provisionCurlCommand(url string) string {
+	var b strings.Builder
+	b.WriteString("curl")
+	if header := strings.TrimSpace(os.Getenv("XUI_DOWNLOAD_AUTH_HEADER")); header != "" {
+		b.WriteString(" -H ")
+		b.WriteString(shellQuote(header))
+	}
+	b.WriteString(" -fsSL ")
+	b.WriteString(shellQuote(url))
 	return b.String()
 }
 
@@ -509,7 +561,7 @@ func decodeBase64Text(s string) (string, bool) {
 	return "", false
 }
 
-var secretLineRe = regexp.MustCompile(`(?i)(PASSWORD|TOKEN|PRIVATE_KEY|PASSPHRASE)=.*`)
+var secretLineRe = regexp.MustCompile(`(?i)(PASSWORD|TOKEN|PRIVATE_KEY|PASSPHRASE|AUTH_HEADER)=.*`)
 
 func redactProvisionOutput(raw string) []string {
 	lines := make([]string, 0, nodeProvisionOutputLimit)

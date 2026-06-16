@@ -42,6 +42,64 @@ arch() {
 
 echo "Arch: $(arch)"
 
+xui_env_file_path() {
+    case "${release}" in
+        ubuntu | debian | armbian)
+            echo "/etc/default/x-ui"
+            ;;
+        arch | manjaro | parch | alpine)
+            echo "/etc/conf.d/x-ui"
+            ;;
+        *)
+            echo "/etc/sysconfig/x-ui"
+            ;;
+    esac
+}
+
+xui_release_api_url() {
+    echo "${XUI_RELEASE_API_URL:-https://api.github.com/repos/MHSanaei/3x-ui/releases/latest}"
+}
+
+xui_release_asset_url() {
+    local tag="$1" artifact_arch="$2"
+    local template="${XUI_RELEASE_ASSET_URL_TEMPLATE:-https://github.com/MHSanaei/3x-ui/releases/download/{tag}/x-ui-linux-{arch}.tar.gz}"
+    template="${template//\{tag\}/$tag}"
+    template="${template//\{arch\}/$artifact_arch}"
+    echo "$template"
+}
+
+xui_raw_url() {
+    local path="$1"
+    local base="${XUI_RAW_BASE_URL:-https://raw.githubusercontent.com/MHSanaei/3x-ui/main}"
+    echo "${base%/}/${path#/}"
+}
+
+curl_with_auth() {
+    if [[ -n "${XUI_DOWNLOAD_AUTH_HEADER:-}" ]]; then
+        curl -H "${XUI_DOWNLOAD_AUTH_HEADER}" "$@"
+    else
+        curl "$@"
+    fi
+}
+
+write_xui_source_env() {
+    if [[ -z "${XUI_RELEASE_API_URL:-}" && -z "${XUI_RELEASE_ASSET_URL_TEMPLATE:-}" && -z "${XUI_RAW_BASE_URL:-}" && -z "${XUI_DOWNLOAD_AUTH_HEADER:-}" ]]; then
+        return 0
+    fi
+    local envfile
+    envfile="$(xui_env_file_path)"
+    install -d -m 755 "$(dirname "$envfile")"
+    touch "$envfile"
+    sed -i '/^XUI_RELEASE_API_URL=/d; /^XUI_RELEASE_ASSET_URL_TEMPLATE=/d; /^XUI_RAW_BASE_URL=/d; /^XUI_DOWNLOAD_AUTH_HEADER=/d' "$envfile"
+    {
+        [[ -n "${XUI_RELEASE_API_URL:-}" ]] && printf 'XUI_RELEASE_API_URL=%q\n' "$XUI_RELEASE_API_URL"
+        [[ -n "${XUI_RELEASE_ASSET_URL_TEMPLATE:-}" ]] && printf 'XUI_RELEASE_ASSET_URL_TEMPLATE=%q\n' "$XUI_RELEASE_ASSET_URL_TEMPLATE"
+        [[ -n "${XUI_RAW_BASE_URL:-}" ]] && printf 'XUI_RAW_BASE_URL=%q\n' "$XUI_RAW_BASE_URL"
+        [[ -n "${XUI_DOWNLOAD_AUTH_HEADER:-}" ]] && printf 'XUI_DOWNLOAD_AUTH_HEADER=%q\n' "$XUI_DOWNLOAD_AUTH_HEADER"
+    } >> "$envfile"
+    chmod 600 "$envfile"
+}
+
 # Non-interactive mode: triggered explicitly via XUI_NONINTERACTIVE=1, or
 # implicitly when stdin is not a TTY (e.g. `curl ... | bash`, cloud-init).
 # In this mode every prompt below is replaced by an env var or a sane default.
@@ -1339,19 +1397,19 @@ install_x-ui() {
 
     # Download resources
     if [ $# == 0 ]; then
-        tag_version=$(curl -Ls "https://api.github.com/repos/MHSanaei/3x-ui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+        tag_version=$(curl_with_auth -Ls "$(xui_release_api_url)" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
         if [[ ! -n "$tag_version" ]]; then
             echo -e "${yellow}Trying to fetch version with IPv4...${plain}"
-            tag_version=$(curl -4 -Ls "https://api.github.com/repos/MHSanaei/3x-ui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+            tag_version=$(curl_with_auth -4 -Ls "$(xui_release_api_url)" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
             if [[ ! -n "$tag_version" ]]; then
-                echo -e "${red}Failed to fetch x-ui version, it may be due to GitHub API restrictions, please try it later${plain}"
+                echo -e "${red}Failed to fetch x-ui version, please check the release source and try again${plain}"
                 exit 1
             fi
         fi
         echo -e "Got x-ui latest version: ${tag_version}, beginning the installation..."
-        curl -4fLRo ${xui_folder}-linux-$(arch).tar.gz https://github.com/MHSanaei/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz
+        curl_with_auth -4fLRo ${xui_folder}-linux-$(arch).tar.gz "$(xui_release_asset_url "$tag_version" "$(arch)")"
         if [[ $? -ne 0 ]]; then
-            echo -e "${red}Downloading x-ui failed, please be sure that your server can access GitHub ${plain}"
+            echo -e "${red}Downloading x-ui failed, please be sure that your server can access the release source ${plain}"
             exit 1
         fi
     else
@@ -1364,15 +1422,15 @@ install_x-ui() {
             exit 1
         fi
 
-        url="https://github.com/MHSanaei/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
+        url="$(xui_release_asset_url "$tag_version" "$(arch)")"
         echo -e "Beginning to install x-ui $1"
-        curl -4fLRo ${xui_folder}-linux-$(arch).tar.gz ${url}
+        curl_with_auth -4fLRo ${xui_folder}-linux-$(arch).tar.gz ${url}
         if [[ $? -ne 0 ]]; then
             echo -e "${red}Download x-ui $1 failed, please check if the version exists ${plain}"
             exit 1
         fi
     fi
-    curl -4fLRo /usr/bin/x-ui-temp https://raw.githubusercontent.com/MHSanaei/3x-ui/main/x-ui.sh
+    curl_with_auth -4fLRo /usr/bin/x-ui-temp "$(xui_raw_url x-ui.sh)"
     if [[ $? -ne 0 ]]; then
         echo -e "${red}Failed to download x-ui.sh${plain}"
         exit 1
@@ -1421,6 +1479,7 @@ install_x-ui() {
     mv -f /usr/bin/x-ui-temp /usr/bin/x-ui
     chmod +x /usr/bin/x-ui
     mkdir -p /var/log/x-ui
+    write_xui_source_env
     config_after_install
 
     # Etckeeper compatibility
@@ -1438,7 +1497,7 @@ install_x-ui() {
     fi
 
     if [[ $release == "alpine" ]]; then
-        curl -4fLRo /etc/init.d/x-ui https://raw.githubusercontent.com/MHSanaei/3x-ui/main/x-ui.rc
+        curl_with_auth -4fLRo /etc/init.d/x-ui "$(xui_raw_url x-ui.rc)"
         if [[ $? -ne 0 ]]; then
             echo -e "${red}Failed to download x-ui.rc${plain}"
             exit 1
@@ -1490,18 +1549,18 @@ install_x-ui() {
             esac
         fi
 
-        # If service file not found in tar.gz, download from GitHub
+        # If service file not found in tar.gz, download from the configured raw source.
         if [ "$service_installed" = false ]; then
-            echo -e "${yellow}Service files not found in tar.gz, downloading from GitHub...${plain}"
+            echo -e "${yellow}Service files not found in tar.gz, downloading from configured source...${plain}"
             case "${release}" in
                 ubuntu | debian | armbian)
-                    curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/MHSanaei/3x-ui/main/x-ui.service.debian > /dev/null 2>&1
+                    curl_with_auth -4fLRo ${xui_service}/x-ui.service "$(xui_raw_url x-ui.service.debian)" > /dev/null 2>&1
                     ;;
                 arch | manjaro | parch)
-                    curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/MHSanaei/3x-ui/main/x-ui.service.arch > /dev/null 2>&1
+                    curl_with_auth -4fLRo ${xui_service}/x-ui.service "$(xui_raw_url x-ui.service.arch)" > /dev/null 2>&1
                     ;;
                 *)
-                    curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/MHSanaei/3x-ui/main/x-ui.service.rhel > /dev/null 2>&1
+                    curl_with_auth -4fLRo ${xui_service}/x-ui.service "$(xui_raw_url x-ui.service.rhel)" > /dev/null 2>&1
                     ;;
             esac
 

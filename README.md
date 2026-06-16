@@ -77,6 +77,30 @@ During installation a random username, password, and access path are generated. 
 
 For full documentation, please visit the [project Wiki](https://github.com/MHSanaei/3x-ui/wiki).
 
+### Private GitLab release source
+
+Install, auto-update, and SSH node provisioning can download panel builds from a
+private GitLab release instead of the default GitHub release. Set these variables
+before running `install.sh`; the installer writes them to the service environment
+file so future web updates and provisioned nodes keep using the same source.
+
+```bash
+export XUI_RELEASE_API_URL="https://gitlab.example.com/api/v4/projects/<project_id>/releases/permalink/latest"
+export XUI_RELEASE_ASSET_URL_TEMPLATE="https://gitlab.example.com/<group>/<project>/-/releases/{tag}/downloads/x-ui-linux-{arch}.tar.gz"
+export XUI_RAW_BASE_URL="https://gitlab.example.com/<group>/<project>/-/raw/main"
+export XUI_DOWNLOAD_AUTH_HEADER="PRIVATE-TOKEN: <token>"
+
+bash <(curl -H "$XUI_DOWNLOAD_AUTH_HEADER" -Ls "$XUI_RAW_BASE_URL/install.sh")
+```
+
+For an already installed panel, create or update the service environment file
+and restart x-ui. Debian/Ubuntu/Armbian use `/etc/default/x-ui`; Arch/Alpine use
+`/etc/conf.d/x-ui`; other systemd installs use `/etc/sysconfig/x-ui`.
+
+When provisioning a node through the panel UI, the main panel passes these
+variables, including `XUI_DOWNLOAD_AUTH_HEADER`, through the SSH install command
+and the node persists them for its own future updates.
+
 ### Unattended install & cloud images
 
 The installer also runs **non-interactively** for cloud-init and golden images.
