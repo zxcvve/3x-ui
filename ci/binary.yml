@@ -51,7 +51,7 @@ binary:amd64:
       export GOARCH=amd64
       export CC=musl-gcc
       export CGO_CFLAGS="-D_LARGEFILE64_SOURCE"
-      go build -ldflags "-w -s -linkmode external -extldflags '-static'" -o xui-release -v main.go
+      go build -ldflags "-w -s -linkmode external -extldflags '-static' -X 'github.com/mhsanaei/3x-ui/v3/internal/config.commitHash=${CI_COMMIT_SHORT_SHA}' -X 'github.com/mhsanaei/3x-ui/v3/internal/config.buildTag=${CI_COMMIT_TAG}'" -o xui-release -v main.go
       file xui-release
       ldd xui-release || echo "Static binary confirmed"
 

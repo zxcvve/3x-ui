@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 
 const outDir = path.resolve(__dirname, '../internal/web/dist');
@@ -54,11 +55,29 @@ function refreshBasePath() {
 
 function readPanelVersion() {
   try {
-    const versionFile = path.resolve(__dirname, '..', 'config', 'version');
+    const versionFile = path.resolve(__dirname, '..', 'internal', 'config', 'version');
     return fs.readFileSync(versionFile, 'utf8').trim();
   } catch (_e) {
     return '';
   }
+}
+
+function readGit(args) {
+  try {
+    return execFileSync('git', args, {
+      cwd: path.resolve(__dirname, '..'),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch (_e) {
+    return '';
+  }
+}
+
+function readPanelDisplayVersion(version) {
+  const tag = readGit(['describe', '--tags', '--exact-match']);
+  if (tag) return version ? `v${version.replace(/^v/, '')}` : tag;
+  return readGit(['rev-parse', '--short=12', 'HEAD']) || (version ? `v${version.replace(/^v/, '')}` : '');
 }
 
 // `apply: 'serve'` keeps the injection out of `vite build` — dist.go
@@ -70,8 +89,10 @@ function injectBasePathPlugin() {
     transformIndexHtml(html) {
       const basePath = refreshBasePath();
       const escaped = basePath.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      const version = readPanelVersion().replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      const tag = `<script>window.X_UI_BASE_PATH="${escaped}";window.X_UI_CUR_VER="${version}";</script>`;
+      const rawVersion = readPanelVersion();
+      const version = rawVersion.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const displayVersion = readPanelDisplayVersion(rawVersion).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const tag = `<script>window.X_UI_BASE_PATH="${escaped}";window.X_UI_CUR_VER="${version}";window.X_UI_DISPLAY_VER="${displayVersion}";</script>`;
       return html.replace('</head>', `${tag}</head>`);
     },
   };

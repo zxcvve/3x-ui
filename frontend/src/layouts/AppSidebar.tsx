@@ -78,9 +78,8 @@ function DonateButton({ ariaLabel }: { ariaLabel: string }) {
   );
 }
 
-function VersionBadge({ version, collapsed }: { version: string; collapsed?: boolean }) {
-  if (!version) return null;
-  const label = `v${version}`;
+function VersionBadge({ label, collapsed }: { label: string; collapsed?: boolean }) {
+  if (!label) return null;
   return (
     <a
       href={REPO_URL}
@@ -130,7 +129,7 @@ export default function AppSidebar() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const currentTheme: 'light' | 'dark' = isDark ? 'dark' : 'light';
-  const panelVersion = window.X_UI_CUR_VER || '';
+  const panelVersionLabel = window.X_UI_DISPLAY_VER || (window.X_UI_CUR_VER ? `v${window.X_UI_CUR_VER}` : '');
 
   const tabs = useMemo<{ key: string; icon: IconName; title: string }[]>(() => [
     { key: '/', icon: 'dashboard', title: t('menu.dashboard') },
@@ -279,7 +278,7 @@ export default function AppSidebar() {
           onClick={onMenuClick}
         />
         <div className="sider-footer">
-          <VersionBadge version={panelVersion} collapsed={collapsed} />
+          <VersionBadge label={panelVersionLabel} collapsed={collapsed} />
         </div>
       </Layout.Sider>
 
@@ -338,7 +337,7 @@ export default function AppSidebar() {
           onClick={(info) => { onMenuClick(info); setDrawerOpen(false); }}
         />
         <div className="drawer-footer">
-          <VersionBadge version={panelVersion} />
+          <VersionBadge label={panelVersionLabel} />
         </div>
       </Drawer>
 

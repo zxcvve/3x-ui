@@ -113,7 +113,9 @@ func serveDistPage(c *gin.Context, name string) {
 	script := `<script` + nonceAttr + `>window.X_UI_BASE_PATH="` + escapedBase + `"`
 	if name != "login.html" {
 		escapedVer := jsEscape.Replace(config.GetVersion())
+		escapedDisplayVer := jsEscape.Replace(config.GetDisplayVersion())
 		script += `;window.X_UI_CUR_VER="` + escapedVer + `"`
+		script += `;window.X_UI_DISPLAY_VER="` + escapedDisplayVer + `"`
 		script += `;window.X_UI_DB_TYPE="` + config.GetDBKind() + `"`
 	}
 	script += `;</script>`

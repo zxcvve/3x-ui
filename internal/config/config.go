@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"testing"
 )
@@ -18,6 +19,11 @@ var version string
 
 //go:embed name
 var name string
+
+var (
+	commitHash string
+	buildTag   string
+)
 
 // LogLevel represents the logging level for the application.
 type LogLevel string
@@ -34,6 +40,52 @@ const (
 // GetVersion returns the version string of the 3x-ui application.
 func GetVersion() string {
 	return strings.TrimSpace(version)
+}
+
+func GetDisplayVersion() string {
+	v := GetVersion()
+	if strings.TrimSpace(buildTag) != "" {
+		return ensureVersionPrefix(v)
+	}
+	if hash := shortCommitHash(); hash != "" {
+		return hash
+	}
+	return ensureVersionPrefix(v)
+}
+
+func shortCommitHash() string {
+	hash := strings.TrimSpace(commitHash)
+	if hash == "" {
+		hash = vcsRevision()
+	}
+	if len(hash) > 12 {
+		return hash[:12]
+	}
+	return hash
+}
+
+func vcsRevision() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok || info == nil {
+		return ""
+	}
+	for _, setting := range info.Settings {
+		if setting.Key == "vcs.revision" {
+			return strings.TrimSpace(setting.Value)
+		}
+	}
+	return ""
+}
+
+func ensureVersionPrefix(v string) string {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return ""
+	}
+	if strings.HasPrefix(v, "v") {
+		return v
+	}
+	return "v" + v
 }
 
 // GetName returns the name of the 3x-ui application.
