@@ -39,7 +39,7 @@ xray_asset_url() {
         | sed "s|{tag}|$XRAY_VERSION|g; s|{os}|linux|g; s|{arch}|$ARCH|g"
 }
 curl_with_auth() {
-    if [ -n "${XUI_DOWNLOAD_AUTH_HEADER:-}" ]; then
+    if [ -n "${XUI_XRAY_ASSET_URL_TEMPLATE:-}" ] && [ -n "${XUI_DOWNLOAD_AUTH_HEADER:-}" ]; then
         curl -H "$XUI_DOWNLOAD_AUTH_HEADER" "$@"
     else
         curl "$@"

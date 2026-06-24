@@ -46,6 +46,7 @@ func TestXrayAssetPlatformKeepsUpstreamNames(t *testing.T) {
 
 func TestFetchXrayVersionsUsesConfiguredClientAndAuth(t *testing.T) {
 	t.Setenv("XUI_DOWNLOAD_AUTH_HEADER", "PRIVATE-TOKEN: xray-token")
+	t.Setenv("XUI_XRAY_RELEASE_API_URL", "https://gitlab.com/api/v4/projects/1/releases")
 	var gotAuth, gotURL string
 	client := &http.Client{Transport: serviceRoundTripFunc(func(req *http.Request) (*http.Response, error) {
 		gotAuth = req.Header.Get("PRIVATE-TOKEN")
@@ -78,8 +79,31 @@ func TestFetchXrayVersionsUsesConfiguredClientAndAuth(t *testing.T) {
 	}
 }
 
+func TestXrayHTTPGetSkipsAuthHeaderForDefaultSource(t *testing.T) {
+	t.Setenv("XUI_DOWNLOAD_AUTH_HEADER", "Authorization: Bearer private-token")
+	var gotAuth string
+	client := &http.Client{Transport: serviceRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+		gotAuth = req.Header.Get("Authorization")
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Status:     "200 OK",
+			Body:       io.NopCloser(strings.NewReader(`[]`)),
+			Header:     make(http.Header),
+			Request:    req,
+		}, nil
+	})}
+
+	if _, err := xrayHTTPGet(client, defaultXrayReleaseAPIURL); err != nil {
+		t.Fatalf("xrayHTTPGet: %v", err)
+	}
+	if gotAuth != "" {
+		t.Fatalf("Authorization header = %q, want empty for default Xray source", gotAuth)
+	}
+}
+
 func TestXrayHTTPGetRejectsInvalidAuthHeader(t *testing.T) {
 	t.Setenv("XUI_DOWNLOAD_AUTH_HEADER", "missing-colon")
+	t.Setenv("XUI_XRAY_RELEASE_API_URL", "https://gitlab.com/api/v4/projects/1/releases")
 	client := &http.Client{Transport: serviceRoundTripFunc(func(req *http.Request) (*http.Response, error) {
 		t.Fatal("request should not be sent with invalid auth header")
 		return nil, nil

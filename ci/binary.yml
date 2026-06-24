@@ -71,7 +71,7 @@ binary:amd64:
       XRAY_URL="${XRAY_ASSET_URL_TEMPLATE//\{tag\}/${XRAY_VERSION}}"
       XRAY_URL="${XRAY_URL//\{os\}/linux}"
       XRAY_URL="${XRAY_URL//\{arch\}/64}"
-      if [ -n "${XUI_DOWNLOAD_AUTH_HEADER:-}" ]; then
+      if [ -n "${XUI_XRAY_ASSET_URL_TEMPLATE:-}" ] && [ -n "${XUI_DOWNLOAD_AUTH_HEADER:-}" ]; then
         curl -fsSL -H "${XUI_DOWNLOAD_AUTH_HEADER}" "${XRAY_URL}" -o Xray-linux-64.zip
       else
         curl -fsSL "${XRAY_URL}" -o Xray-linux-64.zip

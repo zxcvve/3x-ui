@@ -857,12 +857,17 @@ func xrayAssetURL(tag, osName, arch string) string {
 	return template
 }
 
+func xrayUsesCustomSource() bool {
+	return strings.TrimSpace(os.Getenv("XUI_XRAY_RELEASE_API_URL")) != "" ||
+		strings.TrimSpace(os.Getenv("XUI_XRAY_ASSET_URL_TEMPLATE")) != ""
+}
+
 func xrayHTTPGet(client *http.Client, url string) (*http.Response, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
-	if header := strings.TrimSpace(os.Getenv("XUI_DOWNLOAD_AUTH_HEADER")); header != "" {
+	if header := strings.TrimSpace(os.Getenv("XUI_DOWNLOAD_AUTH_HEADER")); header != "" && xrayUsesCustomSource() {
 		name, value, ok := strings.Cut(header, ":")
 		if !ok || strings.TrimSpace(name) == "" {
 			return nil, fmt.Errorf("invalid XUI_DOWNLOAD_AUTH_HEADER")
