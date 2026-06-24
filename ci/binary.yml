@@ -75,6 +75,13 @@ binary:amd64:
           ;;
       esac
       XRAY_ASSET_URL_TEMPLATE="${XUI_XRAY_ASSET_URL_TEMPLATE:-https://github.com/XTLS/Xray-core/releases/download/{tag}/Xray-{os}-{arch}.zip}"
+      case "${XRAY_ASSET_URL_TEMPLATE}" in
+        *"{tag}"*"{os}"*"{arch}"*) ;;
+        *)
+          echo "Ignoring invalid XUI_XRAY_ASSET_URL_TEMPLATE; using default Xray release template"
+          XRAY_ASSET_URL_TEMPLATE="https://github.com/XTLS/Xray-core/releases/download/{tag}/Xray-{os}-{arch}.zip"
+          ;;
+      esac
       XRAY_URL="$(printf '%s' "${XRAY_ASSET_URL_TEMPLATE}" | sed "s|{tag}|${XRAY_VERSION}|g; s|{os}|linux|g; s|{arch}|64|g")"
       echo "Downloading Xray from ${XRAY_URL}"
       if [ -n "${XUI_DOWNLOAD_AUTH_HEADER:-}" ] && [ "${XRAY_URL#https://github.com/XTLS/Xray-core/releases/download/}" = "${XRAY_URL}" ]; then

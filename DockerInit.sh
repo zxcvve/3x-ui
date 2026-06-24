@@ -41,6 +41,13 @@ case "$XRAY_VERSION" in
         ;;
 esac
 XRAY_ASSET_URL_TEMPLATE="${XUI_XRAY_ASSET_URL_TEMPLATE:-https://github.com/XTLS/Xray-core/releases/download/{tag}/Xray-{os}-{arch}.zip}"
+case "$XRAY_ASSET_URL_TEMPLATE" in
+    *"{tag}"*"{os}"*"{arch}"*) ;;
+    *)
+        echo "Ignoring invalid XUI_XRAY_ASSET_URL_TEMPLATE; using default Xray release template"
+        XRAY_ASSET_URL_TEMPLATE="https://github.com/XTLS/Xray-core/releases/download/{tag}/Xray-{os}-{arch}.zip"
+        ;;
+esac
 xray_asset_url() {
     printf '%s' "$XRAY_ASSET_URL_TEMPLATE" \
         | sed "s|{tag}|$XRAY_VERSION|g; s|{os}|linux|g; s|{arch}|$ARCH|g"
