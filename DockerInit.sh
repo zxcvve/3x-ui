@@ -33,6 +33,13 @@ case $1 in
 esac
 MTG_VER="2.2.8"
 XRAY_VERSION="${XUI_XRAY_VERSION:-v26.6.1}"
+case "$XRAY_VERSION" in
+    v[0-9]*.[0-9]*.[0-9]*) ;;
+    *)
+        echo "Ignoring invalid XUI_XRAY_VERSION; using v26.6.1"
+        XRAY_VERSION="v26.6.1"
+        ;;
+esac
 XRAY_ASSET_URL_TEMPLATE="${XUI_XRAY_ASSET_URL_TEMPLATE:-https://github.com/XTLS/Xray-core/releases/download/{tag}/Xray-{os}-{arch}.zip}"
 xray_asset_url() {
     printf '%s' "$XRAY_ASSET_URL_TEMPLATE" \
