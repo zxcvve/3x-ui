@@ -862,12 +862,20 @@ func xrayUsesCustomSource() bool {
 		strings.TrimSpace(os.Getenv("XUI_XRAY_ASSET_URL_TEMPLATE")) != ""
 }
 
+func xrayShouldUseAuthHeader(rawURL string) bool {
+	if !xrayUsesCustomSource() {
+		return false
+	}
+	return rawURL != defaultXrayReleaseAPIURL &&
+		!strings.HasPrefix(rawURL, "https://github.com/XTLS/Xray-core/releases/download/")
+}
+
 func xrayHTTPGet(client *http.Client, url string) (*http.Response, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
-	if header := strings.TrimSpace(os.Getenv("XUI_DOWNLOAD_AUTH_HEADER")); header != "" && xrayUsesCustomSource() {
+	if header := strings.TrimSpace(os.Getenv("XUI_DOWNLOAD_AUTH_HEADER")); header != "" && xrayShouldUseAuthHeader(url) {
 		name, value, ok := strings.Cut(header, ":")
 		if !ok || strings.TrimSpace(name) == "" {
 			return nil, fmt.Errorf("invalid XUI_DOWNLOAD_AUTH_HEADER")

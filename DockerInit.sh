@@ -39,7 +39,8 @@ xray_asset_url() {
         | sed "s|{tag}|$XRAY_VERSION|g; s|{os}|linux|g; s|{arch}|$ARCH|g"
 }
 curl_with_auth() {
-    if [ -n "${XUI_XRAY_ASSET_URL_TEMPLATE:-}" ] && [ -n "${XUI_DOWNLOAD_AUTH_HEADER:-}" ]; then
+    for CURL_URL do :; done
+    if [ -n "${XUI_DOWNLOAD_AUTH_HEADER:-}" ] && [ "${CURL_URL#https://github.com/XTLS/Xray-core/releases/download/}" = "$CURL_URL" ]; then
         curl -H "$XUI_DOWNLOAD_AUTH_HEADER" "$@"
     else
         curl "$@"

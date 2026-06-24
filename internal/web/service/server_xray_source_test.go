@@ -101,6 +101,29 @@ func TestXrayHTTPGetSkipsAuthHeaderForDefaultSource(t *testing.T) {
 	}
 }
 
+func TestXrayHTTPGetSkipsAuthHeaderForExplicitDefaultTemplate(t *testing.T) {
+	t.Setenv("XUI_DOWNLOAD_AUTH_HEADER", "Authorization: Bearer private-token")
+	t.Setenv("XUI_XRAY_ASSET_URL_TEMPLATE", defaultXrayAssetURLTemplate)
+	var gotAuth string
+	client := &http.Client{Transport: serviceRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+		gotAuth = req.Header.Get("Authorization")
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Status:     "200 OK",
+			Body:       io.NopCloser(strings.NewReader(`[]`)),
+			Header:     make(http.Header),
+			Request:    req,
+		}, nil
+	})}
+
+	if _, err := xrayHTTPGet(client, xrayAssetURL("v26.6.1", "linux", "64")); err != nil {
+		t.Fatalf("xrayHTTPGet: %v", err)
+	}
+	if gotAuth != "" {
+		t.Fatalf("Authorization header = %q, want empty for explicit default Xray template", gotAuth)
+	}
+}
+
 func TestXrayHTTPGetRejectsInvalidAuthHeader(t *testing.T) {
 	t.Setenv("XUI_DOWNLOAD_AUTH_HEADER", "missing-colon")
 	t.Setenv("XUI_XRAY_RELEASE_API_URL", "https://gitlab.com/api/v4/projects/1/releases")
