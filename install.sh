@@ -1394,22 +1394,48 @@ EOF
     ${xui_folder}/x-ui migrate
 }
 
+# setup_fail2ban auto-installs and configures fail2ban for the IP Limit feature
+# by invoking the freshly installed x-ui CLI. IP Limit is load-bearing on
+# fail2ban (without it the panel disables the limitIp field and zeroes existing
+# limits), so a fresh install should make it work out of the box, just like the
+# Docker image already does. Non-fatal by design: a fail2ban failure must never
+# abort the panel install.
+setup_fail2ban() {
+    if [[ -n "${XUI_ENABLE_FAIL2BAN+x}" && "${XUI_ENABLE_FAIL2BAN}" != "true" ]]; then
+        echo -e "${yellow}XUI_ENABLE_FAIL2BAN=${XUI_ENABLE_FAIL2BAN}, skipping Fail2ban auto-setup.${plain}"
+        return 0
+    fi
+
+    if [[ ! -x /usr/bin/x-ui ]]; then
+        echo -e "${yellow}x-ui CLI not found; skipping Fail2ban auto-setup.${plain}"
+        return 0
+    fi
+
+    echo -e "${green}Setting up Fail2ban for the IP Limit feature...${plain}"
+    if /usr/bin/x-ui setup-fail2ban; then
+        echo -e "${green}Fail2ban setup complete.${plain}"
+    else
+        echo -e "${yellow}Fail2ban setup did not finish; IP Limit stays disabled until you run 'x-ui' and open the IP Limit menu. Continuing.${plain}"
+    fi
+    return 0
+}
+
 install_x-ui() {
     cd ${xui_folder%/x-ui}/
 
     # Download resources
     if [ $# == 0 ]; then
-        tag_version=$(curl_with_auth -Ls "$(xui_release_api_url)" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+        tag_version=$(curl_with_auth -Ls --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 60 "$(xui_release_api_url)" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
         if [[ ! -n "$tag_version" ]]; then
             echo -e "${yellow}Trying to fetch version with IPv4...${plain}"
-            tag_version=$(curl_with_auth -4 -Ls "$(xui_release_api_url)" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+            tag_version=$(curl_with_auth -4 -Ls --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 60 "$(xui_release_api_url)" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
             if [[ ! -n "$tag_version" ]]; then
                 echo -e "${red}Failed to fetch x-ui version, please check the release source and try again${plain}"
                 exit 1
             fi
         fi
         echo -e "Got x-ui latest version: ${tag_version}, beginning the installation..."
-        curl_with_auth -4fLRo ${xui_folder}-linux-$(arch).tar.gz "$(xui_release_asset_url "$tag_version" "$(arch)")"
+        curl_with_auth -fLR --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 300 -o ${xui_folder}-linux-$(arch).tar.gz "$(xui_release_asset_url "$tag_version" "$(arch)")"
         if [[ $? -ne 0 ]]; then
             echo -e "${red}Downloading x-ui failed, please be sure that your server can access the release source ${plain}"
             exit 1
@@ -1426,7 +1452,7 @@ install_x-ui() {
 
         url="$(xui_release_asset_url "$tag_version" "$(arch)")"
         echo -e "Beginning to install x-ui $1"
-        curl_with_auth -4fLRo ${xui_folder}-linux-$(arch).tar.gz ${url}
+        curl_with_auth -fLR --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 300 -o ${xui_folder}-linux-$(arch).tar.gz ${url}
         if [[ $? -ne 0 ]]; then
             echo -e "${red}Download x-ui $1 failed, please check if the version exists ${plain}"
             exit 1
@@ -1585,6 +1611,10 @@ install_x-ui() {
             exit 1
         fi
     fi
+
+    # IP Limit relies on fail2ban; install + configure it now so the feature
+    # works out of the box (no-op when XUI_ENABLE_FAIL2BAN=false). Never fatal.
+    setup_fail2ban
 
     echo -e "${green}x-ui ${tag_version}${plain} installation finished, it is running now..."
     echo -e ""

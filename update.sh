@@ -900,6 +900,33 @@ config_after_update() {
     fi
 }
 
+# setup_fail2ban auto-installs and configures fail2ban for the IP Limit feature
+# by invoking the freshly downloaded x-ui CLI. IP Limit is load-bearing on
+# fail2ban (without it the panel disables the limitIp field and zeroes existing
+# limits), so updating an older install should make it work without a manual
+# trip through the IP Limit menu. Non-fatal: a fail2ban failure must never abort
+# the update. XUI_ENABLE_FAIL2BAN is honored (load_xui_env exports it from the
+# persisted env file, so a deliberate opt-out survives updates).
+setup_fail2ban() {
+    if [[ -n "${XUI_ENABLE_FAIL2BAN+x}" && "${XUI_ENABLE_FAIL2BAN}" != "true" ]]; then
+        echo -e "${yellow}XUI_ENABLE_FAIL2BAN=${XUI_ENABLE_FAIL2BAN}, skipping Fail2ban auto-setup.${plain}"
+        return 0
+    fi
+
+    if [[ ! -x /usr/bin/x-ui ]]; then
+        echo -e "${yellow}x-ui CLI not found; skipping Fail2ban auto-setup.${plain}"
+        return 0
+    fi
+
+    echo -e "${green}Setting up Fail2ban for the IP Limit feature...${plain}"
+    if /usr/bin/x-ui setup-fail2ban; then
+        echo -e "${green}Fail2ban setup complete.${plain}"
+    else
+        echo -e "${yellow}Fail2ban setup did not finish; IP Limit stays disabled until you run 'x-ui' and open the IP Limit menu. Continuing.${plain}"
+    fi
+    return 0
+}
+
 update_x-ui() {
     cd ${xui_folder%/x-ui}/
 
@@ -914,10 +941,17 @@ update_x-ui() {
 
     echo -e "${green}Downloading new x-ui version...${plain}"
 
-    tag_version=$(curl_with_auth -Ls "$(xui_release_api_url)" 2> /dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-    if [[ ! -n "$tag_version" ]]; then
-        echo -e "${yellow}Trying to fetch version with IPv4...${plain}"
-        tag_version=$(curl_with_auth -4 -Ls "$(xui_release_api_url)" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    # XUI_UPDATE_TAG lets the panel target a specific release tag (e.g. the
+    # rolling dev-latest pre-release). Empty keeps the default latest-stable flow.
+    if [[ -n "${XUI_UPDATE_TAG}" ]]; then
+        tag_version="${XUI_UPDATE_TAG}"
+        echo -e "${green}Using update tag: ${tag_version}${plain}"
+    else
+        tag_version=$(curl_with_auth -Ls "$(xui_release_api_url)" 2> /dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+        if [[ ! -n "$tag_version" ]]; then
+            echo -e "${yellow}Trying to fetch version with IPv4...${plain}"
+            tag_version=$(curl_with_auth -4 -Ls "$(xui_release_api_url)" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+        fi
         if [[ ! -n "$tag_version" ]]; then
             _fail "ERROR: Failed to fetch x-ui version, please check the release source and try it later"
         fi
@@ -1098,6 +1132,11 @@ update_x-ui() {
     fi
 
     config_after_update
+
+    # IP Limit relies on fail2ban; install + configure it now so the feature
+    # works out of the box on update too (no-op when XUI_ENABLE_FAIL2BAN=false).
+    # Never fatal.
+    setup_fail2ban
 
     echo -e "${green}x-ui ${tag_version}${plain} updating finished, it is running now..."
     echo -e ""

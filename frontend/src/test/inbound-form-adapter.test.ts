@@ -7,6 +7,7 @@ import {
   type RawInboundRow,
 } from '@/lib/xray/inbound-form-adapter';
 import { InboundDbFieldsSchema, InboundFormSchema } from '@/schemas/forms/inbound-form';
+import { VlessInboundSettingsSchema } from '@/schemas/protocols/inbound/vless';
 import { SockoptStreamSettingsSchema } from '@/schemas/protocols/stream/sockopt';
 
 // Round-trip: raw DB row → InboundFormValues → wire payload, asserting
@@ -177,7 +178,7 @@ describe('formValuesToWirePayload', () => {
     // Empty arrays like `fallbacks: []` drop out of the payload to match
     // the legacy panel's minimal JSON.
     const parsedSettings = JSON.parse(payload.settings);
-    const { fallbacks: _f, ...expectedSettings } = vlessRow.settings as Record<string, unknown>;
+    const { fallbacks: _f, ...expectedSettings } = VlessInboundSettingsSchema.parse(vlessRow.settings) as Record<string, unknown>;
     expect(parsedSettings).toEqual(expectedSettings);
 
     expect(JSON.parse(payload.streamSettings)).toEqual(vlessRow.streamSettings);
@@ -289,8 +290,18 @@ describe('subSortIndex', () => {
   });
 
   it('InboundDbFieldsSchema enforces an integer minimum of 1 and defaults to 1', () => {
-    expect(InboundDbFieldsSchema.partial().safeParse({ subSortIndex: 1.5 }).success).toBe(false);
-    expect(InboundDbFieldsSchema.partial().safeParse({ subSortIndex: 0 }).success).toBe(false);
+    // Reject for the RIGHT reason: the issue must be about subSortIndex, not some
+    // unrelated field — otherwise a schema that rejects everything would pass.
+    const nonInt = InboundDbFieldsSchema.partial().safeParse({ subSortIndex: 1.5 });
+    expect(nonInt.success).toBe(false);
+    if (!nonInt.success) expect(nonInt.error.issues[0]?.path).toContain('subSortIndex');
+
+    const belowMin = InboundDbFieldsSchema.partial().safeParse({ subSortIndex: 0 });
+    expect(belowMin.success).toBe(false);
+    if (!belowMin.success) expect(belowMin.error.issues[0]?.path).toContain('subSortIndex');
+
+    // A valid integer >= 1 must pass (guards against a mutant rejecting all values).
+    expect(InboundDbFieldsSchema.partial().safeParse({ subSortIndex: 5 }).success).toBe(true);
     expect(InboundDbFieldsSchema.parse({}).subSortIndex).toBe(1);
   });
 });

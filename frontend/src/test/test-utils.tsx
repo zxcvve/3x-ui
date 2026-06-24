@@ -1,10 +1,21 @@
 import type { ReactElement } from 'react';
 import { render, fireEvent } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { ThemeProvider } from '@/hooks/useTheme';
 
 export function renderWithProviders(ui: ReactElement) {
-  return render(<ThemeProvider>{ui}</ThemeProvider>);
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>{ui}</ThemeProvider>
+    </QueryClientProvider>,
+  );
 }
 
 export function fieldLabels(): string[] {

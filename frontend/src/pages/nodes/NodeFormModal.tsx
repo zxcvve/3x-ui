@@ -28,6 +28,7 @@ import {
   type ProbeResult,
 } from '@/schemas/node';
 import { antdRule } from '@/utils/zodForm';
+import { useOutboundTagGroups } from '@/api/queries/useOutboundTags';
 import './NodeFormModal.css';
 
 type Mode = 'add' | 'edit';
@@ -43,6 +44,8 @@ interface NodeFormModalProps {
   provision: (payload: NodeProvisionFormValues) => Promise<Msg<NodeProvisionResult>>;
   onOpenChange: (open: boolean) => void;
 }
+
+type NodeModalFormValues = Omit<NodeProvisionFormValues, 'tlsVerifyMode'> & NodeFormValues;
 
 function defaultValues(): NodeFormValues {
   return {
@@ -60,6 +63,7 @@ function defaultValues(): NodeFormValues {
     pinnedCertSha256: '',
     inboundSyncMode: 'all',
     inboundTags: [],
+    outboundTag: '',
   };
 }
 
@@ -75,7 +79,7 @@ export default function NodeFormModal({
   onOpenChange,
 }: NodeFormModalProps) {
   const { t } = useTranslation();
-  const [form] = Form.useForm<NodeFormValues & NodeProvisionFormValues>();
+  const [form] = Form.useForm<NodeModalFormValues>();
   const [messageApi, messageContextHolder] = message.useMessage();
 
   const [submitting, setSubmitting] = useState(false);
@@ -92,6 +96,23 @@ export default function NodeFormModal({
   const sslMode = Form.useWatch('sslMode', form) ?? 'none';
   const sshSkipHostKeyCheck = Form.useWatch('sshSkipHostKeyCheck', form) ?? false;
   const isProvision = mode === 'add' && addMode === 'provision';
+  const { data: outboundGroups } = useOutboundTagGroups({ excludeBlackhole: true });
+
+  // Outbounds and balancers share one picker (like the panel-outbound selector);
+  // when balancers exist they get a labeled group so it's clear the selection
+  // routes through a balancer. Empty falls back to the placeholder ("Direct
+  // connection") rather than a synthetic option, so it can't read as a second
+  // "direct" next to a real freedom outbound.
+  const outboundOptions = useMemo<
+    ({ label: string; value: string } | { label: string; options: { label: string; value: string }[] })[]
+  >(() => {
+    const outOpts = (outboundGroups?.outbounds ?? []).map((tag) => ({ label: tag, value: tag }));
+    if (!outboundGroups?.balancers.length) return outOpts;
+    return [
+      { label: t('pages.xray.Outbounds'), options: outOpts },
+      { label: t('pages.xray.Balancers'), options: outboundGroups.balancers.map((tag) => ({ label: tag, value: tag })) },
+    ];
+  }, [outboundGroups, t]);
 
   useEffect(() => {
     if (!open) return;
@@ -152,6 +173,7 @@ export default function NodeFormModal({
       pinnedCertSha256: values.tlsVerifyMode === 'pin' ? values.pinnedCertSha256.trim() : '',
       inboundSyncMode: values.inboundSyncMode,
       inboundTags: values.inboundSyncMode === 'selected' ? values.inboundTags : [],
+      outboundTag: values.outboundTag || '',
     };
   }
 
@@ -506,7 +528,7 @@ export default function NodeFormModal({
             label={t('pages.nodes.allowPrivateAddress')}
             name="allowPrivateAddress"
             valuePropName="checked"
-            extra={t('pages.nodes.allowPrivateAddressHint')}
+            tooltip={t('pages.nodes.allowPrivateAddressHint')}
           >
             <Switch />
           </Form.Item>
@@ -514,7 +536,7 @@ export default function NodeFormModal({
           <Form.Item
             label={t('pages.nodes.tlsVerifyMode')}
             name="tlsVerifyMode"
-            extra={t('pages.nodes.tlsVerifyModeHint')}
+            tooltip={t('pages.nodes.tlsVerifyModeHint')}
           >
             <Select
               disabled={scheme === 'http'}
@@ -522,6 +544,7 @@ export default function NodeFormModal({
                 { value: 'verify', label: t('pages.nodes.tlsVerify') },
                 { value: 'pin', label: t('pages.nodes.tlsPin') },
                 { value: 'skip', label: t('pages.nodes.tlsSkip') },
+                { value: 'mtls', label: t('pages.nodes.tlsMtls') },
               ]}
             />
           </Form.Item>
@@ -535,11 +558,20 @@ export default function NodeFormModal({
             />
           )}
 
+          {tlsVerifyMode === 'mtls' && (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 16 }}
+              title={t('pages.nodes.mtlsFormHint')}
+            />
+          )}
+
           {tlsVerifyMode === 'pin' && (
             <Form.Item
               label={t('pages.nodes.pinnedCert')}
               name="pinnedCertSha256"
-              extra={t('pages.nodes.pinnedCertHint')}
+              tooltip={t('pages.nodes.pinnedCertHint')}
             >
               <Input.Search
                 placeholder={t('pages.nodes.pinnedCertPlaceholder')}
@@ -554,15 +586,29 @@ export default function NodeFormModal({
             label={t('pages.nodes.apiToken')}
             name="apiToken"
             rules={[antdRule(NodeFormSchema.shape.apiToken, t)]}
-            extra={t('pages.nodes.apiTokenHint')}
+            tooltip={t('pages.nodes.apiTokenHint')}
           >
             <Input.Password placeholder={t('pages.nodes.apiTokenPlaceholder')} />
           </Form.Item>
 
           <Form.Item
+            label={t('pages.nodes.outboundTag')}
+            name="outboundTag"
+            tooltip={t('pages.nodes.outboundTagHint')}
+            getValueProps={(v) => ({ value: (v as string) || undefined })}
+          >
+            <Select
+              allowClear
+              showSearch
+              placeholder={t('pages.nodes.outboundTagPlaceholder')}
+              options={outboundOptions}
+            />
+          </Form.Item>
+
+          <Form.Item
             label={t('pages.nodes.inboundSyncMode')}
             name="inboundSyncMode"
-            extra={t('pages.nodes.inboundSyncModeHint')}
+            tooltip={t('pages.nodes.inboundSyncModeHint')}
           >
             <Select
               options={[
@@ -576,7 +622,7 @@ export default function NodeFormModal({
             <Form.Item
               label={t('pages.nodes.inboundTags')}
               name="inboundTags"
-              extra={t('pages.nodes.inboundTagsHint')}
+              tooltip={t('pages.nodes.inboundTagsHint')}
             >
               <Select
                 mode="multiple"

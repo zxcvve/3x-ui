@@ -121,6 +121,8 @@ exports[`createDefaultVlessClient > produces a Zod-valid client 1`] = `
   "id": "11111111-2222-4333-8444-555555555555",
   "limitIp": 0,
   "reset": 0,
+  "speedLimitDownload": 0,
+  "speedLimitUpload": 0,
   "subId": "fixed-sub-id-1234",
   "tgId": 0,
   "totalGB": 0,

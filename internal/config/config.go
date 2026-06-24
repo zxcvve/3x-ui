@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -20,9 +21,15 @@ var version string
 //go:embed name
 var name string
 
+// buildCommit and buildDate are injected at build time via `-ldflags -X` for
+// CI per-commit (dev channel) builds; see .github/workflows/release.yml. They
+// stay empty for a plain `go build` and for stable tagged releases, which is how
+// IsDevBuild tells a rolling dev build apart from a stable/local one.
 var (
-	commitHash string
-	buildTag   string
+	commitHash  string
+	buildTag    string
+	buildCommit string
+	buildDate   string
 )
 
 // LogLevel represents the logging level for the application.
@@ -93,6 +100,23 @@ func GetName() string {
 	return strings.TrimSpace(name)
 }
 
+// GetBuildCommit returns the short git commit this binary was built from, or an
+// empty string for a plain/local build or a stable tagged release.
+func GetBuildCommit() string {
+	return strings.TrimSpace(buildCommit)
+}
+
+// GetBuildDate returns the UTC build timestamp injected at build time, or empty.
+func GetBuildDate() string {
+	return strings.TrimSpace(buildDate)
+}
+
+// IsDevBuild reports whether this binary is a CI per-commit (dev channel) build,
+// detected by the injected commit. Stable releases and local builds return false.
+func IsDevBuild() bool {
+	return GetBuildCommit() != ""
+}
+
 // GetLogLevel returns the current logging level based on environment variables or defaults to Info.
 func GetLogLevel() LogLevel {
 	if IsDebug() {
@@ -113,6 +137,23 @@ func IsDebug() bool {
 // IsSkipHSTS returns true if skipping HSTS mode is enabled via the XUI_SKIP_HSTS environment variable.
 func IsSkipHSTS() bool {
 	return os.Getenv("XUI_SKIP_HSTS") == "true"
+}
+
+func GetPortOverride() (port int, configured bool, err error) {
+	value, ok := os.LookupEnv("XUI_PORT")
+	if !ok || strings.TrimSpace(value) == "" {
+		return 0, false, nil
+	}
+
+	port, err = strconv.Atoi(strings.TrimSpace(value))
+	if err != nil {
+		return 0, true, fmt.Errorf("parse XUI_PORT: %w", err)
+	}
+	if port < 1 || port > 65535 {
+		return 0, true, fmt.Errorf("XUI_PORT must be between 1 and 65535")
+	}
+
+	return port, true, nil
 }
 
 // GetBinFolderPath returns the path to the binary folder, defaulting to "bin" if not set via XUI_BIN_FOLDER.

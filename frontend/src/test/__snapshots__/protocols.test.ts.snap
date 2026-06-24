@@ -167,6 +167,8 @@ exports[`InboundSettingsSchema fixtures > parses vless-tcp-none byte-stably 1`] 
         "id": "8c14d6f7-2e3b-4a91-9d24-3f7a6b8c1e02",
         "limitIp": 0,
         "reset": 0,
+        "speedLimitDownload": 0,
+        "speedLimitUpload": 0,
         "subId": "abc123def",
         "tgId": 0,
         "totalGB": 0,
