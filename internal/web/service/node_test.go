@@ -182,6 +182,34 @@ func TestNodeService_NormalizeInboundSelection(t *testing.T) {
 	}
 }
 
+func TestNodeService_NormalizeAddsBridgeTagsToSelectedInboundSync(t *testing.T) {
+	s := &NodeService{}
+	n := &model.Node{
+		Name:                 "n",
+		Address:              "example.com",
+		Port:                 443,
+		InboundSyncMode:      "selected",
+		InboundTags:          []string{"alpha"},
+		OutboundBridgeEnable: true,
+		OutboundBridgeTags:   []string{" beta ", "alpha", "gamma"},
+	}
+	if err := s.normalize(n); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"alpha", "beta", "gamma"}
+	if len(n.InboundTags) != len(want) {
+		t.Fatalf("InboundTags = %#v, want %#v", n.InboundTags, want)
+	}
+	for i := range want {
+		if n.InboundTags[i] != want[i] {
+			t.Fatalf("InboundTags = %#v, want %#v", n.InboundTags, want)
+		}
+	}
+	if len(n.OutboundBridgeTags) != 3 || n.OutboundBridgeTags[0] != "beta" || n.OutboundBridgeTags[1] != "alpha" || n.OutboundBridgeTags[2] != "gamma" {
+		t.Fatalf("OutboundBridgeTags = %#v, want [beta alpha gamma]", n.OutboundBridgeTags)
+	}
+}
+
 func TestNodeService_UpdatePersistsOutboundBridgeSelection(t *testing.T) {
 	setupSettingTestDB(t)
 	s := &NodeService{}

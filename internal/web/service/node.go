@@ -416,6 +416,9 @@ func (s *NodeService) normalize(n *model.Node) error {
 	} else {
 		n.OutboundBridgeTags = normalizeNodeTagSelection(n.OutboundBridgeTags)
 	}
+	if n.InboundSyncMode == "selected" && len(n.OutboundBridgeTags) > 0 {
+		n.InboundTags = normalizeNodeTagSelection(append(n.InboundTags, n.OutboundBridgeTags...))
+	}
 	if n.TlsVerifyMode == "pin" {
 		if _, err := runtime.DecodeCertPin(n.PinnedCertSha256); err != nil {
 			return common.NewError(err.Error())

@@ -60,6 +60,46 @@ describe('node outbound bridging', () => {
     expect(payload.outboundBridgeTags).toEqual(['remote-vless']);
   });
 
+  test('node form includes bridge selections in selected inbound sync payload', async () => {
+    const save = vi.fn().mockResolvedValue({ success: true });
+    renderWithProviders(
+      <NodeFormModal
+        open
+        mode="edit"
+        node={{
+          id: 7,
+          name: 'de-node',
+          scheme: 'https',
+          address: 'node.example.com',
+          port: 2053,
+          basePath: '/',
+          apiToken: 'token',
+          enable: true,
+          allowPrivateAddress: false,
+          tlsVerifyMode: 'verify',
+          inboundSyncMode: 'selected',
+          inboundTags: ['already-synced'],
+          outboundBridgeEnable: true,
+          outboundBridgeTags: ['remote-vless'],
+        }}
+        testConnection={vi.fn().mockResolvedValue({ success: true, obj: { status: 'online' } })}
+        fetchFingerprint={vi.fn()}
+        fetchInbounds={vi.fn().mockResolvedValue({ success: true, obj: [] })}
+        save={save}
+        provision={vi.fn()}
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    const payload = save.mock.calls[0][0];
+    expect(payload.inboundSyncMode).toBe('selected');
+    expect(payload.inboundTags).toEqual(expect.arrayContaining(['already-synced', 'remote-vless']));
+    expect(payload.outboundBridgeTags).toEqual(['remote-vless']);
+  });
+
   test('read-only generated rows show node source metadata', () => {
     renderWithProviders(
       <SubscriptionOutbounds

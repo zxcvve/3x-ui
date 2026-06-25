@@ -164,6 +164,10 @@ export default function NodeFormModal({
   );
 
   function buildPayload(values: NodeFormValues): Partial<NodeRecord> {
+    const outboundBridgeTags = values.outboundBridgeEnable ? values.outboundBridgeTags : [];
+    const inboundTags = values.inboundSyncMode === 'selected'
+      ? Array.from(new Set([...(values.inboundTags || []), ...(outboundBridgeTags || [])]))
+      : [];
     return {
       id: values.id || 0,
       name: values.name.trim(),
@@ -178,10 +182,10 @@ export default function NodeFormModal({
       tlsVerifyMode: values.tlsVerifyMode,
       pinnedCertSha256: values.tlsVerifyMode === 'pin' ? values.pinnedCertSha256.trim() : '',
       inboundSyncMode: values.inboundSyncMode,
-      inboundTags: values.inboundSyncMode === 'selected' ? values.inboundTags : [],
+      inboundTags,
       outboundTag: values.outboundTag || '',
       outboundBridgeEnable: values.outboundBridgeEnable,
-      outboundBridgeTags: values.outboundBridgeEnable ? values.outboundBridgeTags : [],
+      outboundBridgeTags,
     };
   }
 
@@ -638,32 +642,31 @@ export default function NodeFormModal({
             />
           </Form.Item>
 
-          {inboundSyncMode === 'selected' && (
-            <Form.Item
-              label={t('pages.nodes.inboundTags')}
-              name="inboundTags"
-              tooltip={t('pages.nodes.inboundTagsHint')}
-            >
-              <Select
-                mode="multiple"
-                allowClear
-                loading={fetchingInbounds}
-                placeholder={t('pages.nodes.inboundTagsPlaceholder')}
-                popupRender={(menu) => (
-                  <>
-                    <Button type="text" block loading={fetchingInbounds} onClick={onFetchInbounds}>
-                      {t('pages.nodes.loadInbounds')}
-                    </Button>
-                    {menu}
-                  </>
-                )}
-                options={inboundOptions.map((inbound) => ({
-                  value: inbound.tag,
-                  label: `${inbound.remark || inbound.tag}${inbound.protocol ? ` (${inbound.protocol}:${inbound.port || 0})` : ''}`,
-                }))}
-              />
-            </Form.Item>
-          )}
+          <Form.Item
+            label={t('pages.nodes.inboundTags')}
+            name="inboundTags"
+            tooltip={t('pages.nodes.inboundTagsHint')}
+            hidden={inboundSyncMode !== 'selected'}
+          >
+            <Select
+              mode="multiple"
+              allowClear
+              loading={fetchingInbounds}
+              placeholder={t('pages.nodes.inboundTagsPlaceholder')}
+              popupRender={(menu) => (
+                <>
+                  <Button type="text" block loading={fetchingInbounds} onClick={onFetchInbounds}>
+                    {t('pages.nodes.loadInbounds')}
+                  </Button>
+                  {menu}
+                </>
+              )}
+              options={inboundOptions.map((inbound) => ({
+                value: inbound.tag,
+                label: `${inbound.remark || inbound.tag}${inbound.protocol ? ` (${inbound.protocol}:${inbound.port || 0})` : ''}`,
+              }))}
+            />
+          </Form.Item>
 
           <Form.Item
             label={t('pages.nodes.outboundBridgeEnable')}
