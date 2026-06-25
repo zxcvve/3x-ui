@@ -1,22 +1,18 @@
-.docker-buildx:
-  image: docker:27.5.1
-  variables:
-    DOCKER_BUILDKIT: "1"
-    DOCKER_DRIVER: overlay2
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
-  services:
-    - name: docker:27.5.1-dind
-      command: ["--tls=false"]
+.kaniko-build:
+  image:
+    name: gcr.io/kaniko-project/executor:v1.24.0-debug
+    entrypoint: [""]
   before_script:
-    - docker version
-    - docker buildx version
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
-    - docker buildx create --name x-ui-builder --use
-    - docker buildx inspect --bootstrap
+    - |
+      set -eu
+      if [ -n "${CI_REGISTRY:-}" ] && [ -n "${CI_REGISTRY_USER:-}" ] && [ -n "${CI_REGISTRY_PASSWORD:-}" ]; then
+        mkdir -p /kaniko/.docker
+        AUTH="$(printf '%s:%s' "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" | base64 | tr -d '\n')"
+        printf '{"auths":{"%s":{"auth":"%s"}}}\n' "$CI_REGISTRY" "$AUTH" > /kaniko/.docker/config.json
+      fi
 
 docker:image:
-  extends: .docker-buildx
+  extends: .kaniko-build
   stage: docker
   needs:
     - job: binary:amd64
@@ -54,24 +50,28 @@ docker:image:
       tar -xzf x-ui-linux-amd64.tar.gz
 
       if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
-        docker buildx build \
+        /kaniko/executor \
+          --context "$CI_PROJECT_DIR" \
+          --dockerfile "$CI_PROJECT_DIR/Dockerfile" \
+          --no-push \
           --pull \
-          --platform linux/amd64 \
-          --tag "$CI_REGISTRY_IMAGE:mr-$CI_MERGE_REQUEST_IID" \
-          .
+          --destination "$CI_REGISTRY_IMAGE:mr-$CI_MERGE_REQUEST_IID"
         exit 0
       fi
 
-      TAG_ARGS="--tag $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG --tag $CI_REGISTRY_IMAGE:sha-$CI_COMMIT_SHORT_SHA"
-
       if [ -n "${CI_COMMIT_TAG:-}" ]; then
         VERSION="${CI_COMMIT_TAG#v}"
-        TAG_ARGS="--tag $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG --tag $CI_REGISTRY_IMAGE:$VERSION"
+        /kaniko/executor \
+          --context "$CI_PROJECT_DIR" \
+          --dockerfile "$CI_PROJECT_DIR/Dockerfile" \
+          --pull \
+          --destination "$CI_REGISTRY_IMAGE:$CI_COMMIT_TAG" \
+          --destination "$CI_REGISTRY_IMAGE:$VERSION"
+      else
+        /kaniko/executor \
+          --context "$CI_PROJECT_DIR" \
+          --dockerfile "$CI_PROJECT_DIR/Dockerfile" \
+          --pull \
+          --destination "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG" \
+          --destination "$CI_REGISTRY_IMAGE:sha-$CI_COMMIT_SHORT_SHA"
       fi
-
-      docker buildx build \
-        --pull \
-        --push \
-        --platform linux/amd64 \
-        $TAG_ARGS \
-        .
