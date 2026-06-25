@@ -100,6 +100,41 @@ describe('node outbound bridging', () => {
     expect(payload.outboundBridgeTags).toEqual(['remote-vless']);
   });
 
+  test('node form shows bridge selections in selected inbound sync control', async () => {
+    renderWithProviders(
+      <NodeFormModal
+        open
+        mode="edit"
+        node={{
+          id: 7,
+          name: 'de-node',
+          scheme: 'https',
+          address: 'node.example.com',
+          port: 2053,
+          basePath: '/',
+          apiToken: 'token',
+          enable: true,
+          allowPrivateAddress: false,
+          tlsVerifyMode: 'verify',
+          inboundSyncMode: 'selected',
+          inboundTags: [],
+          outboundBridgeEnable: true,
+          outboundBridgeTags: ['remote-vless'],
+        }}
+        testConnection={vi.fn().mockResolvedValue({ success: true, obj: { status: 'online' } })}
+        fetchFingerprint={vi.fn()}
+        fetchInbounds={vi.fn().mockResolvedValue({ success: true, obj: [] })}
+        save={vi.fn().mockResolvedValue({ success: true })}
+        provision={vi.fn()}
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('remote-vless').length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
   test('read-only generated rows show node source metadata', () => {
     renderWithProviders(
       <SubscriptionOutbounds

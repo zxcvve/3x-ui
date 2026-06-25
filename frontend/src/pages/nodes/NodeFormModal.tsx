@@ -47,6 +47,10 @@ interface NodeFormModalProps {
 
 type NodeModalFormValues = Omit<NodeProvisionFormValues, 'tlsVerifyMode'> & NodeFormValues;
 
+function mergeTagSelection(...groups: Array<string[] | null | undefined>): string[] {
+  return Array.from(new Set(groups.flatMap((tags) => tags || []).filter(Boolean)));
+}
+
 function defaultValues(): NodeFormValues {
   return {
     id: 0,
@@ -128,7 +132,9 @@ export default function NodeFormModal({
         id: node.id,
         scheme: (node.scheme as 'http' | 'https') || base.scheme,
         inboundSyncMode: (node.inboundSyncMode as 'all' | 'selected') || base.inboundSyncMode,
-        inboundTags: node.inboundTags ?? [],
+        inboundTags: node.inboundSyncMode === 'selected' && node.outboundBridgeEnable
+          ? mergeTagSelection(node.inboundTags, node.outboundBridgeTags)
+          : node.inboundTags ?? [],
         outboundBridgeEnable: node.outboundBridgeEnable ?? false,
         outboundBridgeTags: node.outboundBridgeTags ?? [],
       }
@@ -153,7 +159,7 @@ export default function NodeFormModal({
     if (mode === 'edit') setAddMode('existing');
     form.resetFields();
     form.setFieldsValue(next);
-    setInboundOptions(Array.from(new Set([...(next.inboundTags || []), ...(next.outboundBridgeTags || [])])).map((tag) => ({ tag })));
+    setInboundOptions(mergeTagSelection(next.inboundTags, next.outboundBridgeTags).map((tag) => ({ tag })));
     setTestResult(null);
     setProvisionResult(null);
   }, [open, mode, node, form]);
@@ -166,7 +172,7 @@ export default function NodeFormModal({
   function buildPayload(values: NodeFormValues): Partial<NodeRecord> {
     const outboundBridgeTags = values.outboundBridgeEnable ? values.outboundBridgeTags : [];
     const inboundTags = values.inboundSyncMode === 'selected'
-      ? Array.from(new Set([...(values.inboundTags || []), ...(outboundBridgeTags || [])]))
+      ? mergeTagSelection(values.inboundTags, outboundBridgeTags)
       : [];
     return {
       id: values.id || 0,
@@ -188,6 +194,18 @@ export default function NodeFormModal({
       outboundBridgeTags,
     };
   }
+
+  useEffect(() => {
+    if (!open || inboundSyncMode !== 'selected' || !outboundBridgeEnable) return;
+    const current = form.getFieldValue('inboundTags') || [];
+    const next = mergeTagSelection(current, outboundBridgeTags);
+    if (next.length === current.length && next.every((tag, index) => tag === current[index])) return;
+    form.setFieldValue('inboundTags', next);
+    setInboundOptions((prev) => {
+      const merged = mergeTagSelection(prev.map((inbound) => inbound.tag), next);
+      return merged.map((tag) => prev.find((inbound) => inbound.tag === tag) || { tag });
+    });
+  }, [form, inboundSyncMode, open, outboundBridgeEnable, outboundBridgeTags]);
 
   const bridgeUnavailable = useMemo(() => {
     if (!outboundBridgeEnable) return [];
