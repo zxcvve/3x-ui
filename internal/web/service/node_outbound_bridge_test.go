@@ -99,6 +99,24 @@ func TestNodeOutboundBridgeCandidates(t *testing.T) {
 			t.Fatalf("got %+v, want collision on stable tag", got)
 		}
 	})
+
+	t.Run("selected remote tag resolves an imported inbound with the node prefix", func(t *testing.T) {
+		in := bridgeInbound(model.VLESS, "n7-remote-vless", `{"clients":[{"id":"11111111-1111-1111-1111-111111111111"}]}`)
+		candidates := BuildNodeOutboundCandidates([]*model.Node{bridgeNode()}, []*model.Inbound{in}, NodeOutboundCollisionContext{})
+		if len(candidates) != 1 {
+			t.Fatalf("expected one candidate, got %d", len(candidates))
+		}
+		got := candidates[0]
+		if !got.Available || got.UnavailableReason != "" {
+			t.Fatalf("candidate should be available, got %+v", got)
+		}
+		if got.SourceInboundID != 12 || got.SourceInboundTag != "remote-vless" {
+			t.Fatalf("source metadata not preserved: %+v", got)
+		}
+		if got.Tag != "node-7-remote-vless" {
+			t.Fatalf("tag = %q, want node-7-remote-vless", got.Tag)
+		}
+	})
 }
 
 func TestMergeNodeOutbounds(t *testing.T) {

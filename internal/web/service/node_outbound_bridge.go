@@ -132,6 +132,14 @@ func BuildNodeOutboundCandidates(nodes []*model.Node, inbounds []*model.Inbound,
 			inboundsByNodeTag[*inbound.NodeID] = byTag
 		}
 		byTag[inbound.Tag] = inbound
+		prefix := nodeTagPrefix(inbound.NodeID)
+		if prefix != "" {
+			if stripped, found := strings.CutPrefix(inbound.Tag, prefix); found {
+				byTag[stripped] = inbound
+			} else {
+				byTag[prefix+inbound.Tag] = inbound
+			}
+		}
 	}
 
 	collisions := make(map[string]struct{})
