@@ -2,6 +2,10 @@ include:
   - local: ci/binary.yml
   - local: ci/docker.yml
 
+default:
+  tags:
+    - docker
+
 stages:
   - binary
   - docker
