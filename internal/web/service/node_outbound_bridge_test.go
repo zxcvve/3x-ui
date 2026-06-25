@@ -117,6 +117,55 @@ func TestNodeOutboundBridgeCandidates(t *testing.T) {
 			t.Fatalf("tag = %q, want node-7-remote-vless", got.Tag)
 		}
 	})
+
+	t.Run("custom share address is used as the dial target", func(t *testing.T) {
+		n := bridgeNode()
+		n.Address = "panel-only.example.com"
+		in := bridgeInbound(model.VLESS, "remote-vless", `{"clients":[{"id":"11111111-1111-1111-1111-111111111111"}]}`)
+		in.ShareAddrStrategy = "custom"
+		in.ShareAddr = "traffic.example.com"
+		got := BuildNodeOutboundCandidates([]*model.Node{n}, []*model.Inbound{in}, NodeOutboundCollisionContext{})[0]
+		if !got.Available {
+			t.Fatalf("candidate should be available, got %+v", got)
+		}
+		settings := got.Outbound["settings"].(map[string]any)
+		vnext := settings["vnext"].([]any)[0].(map[string]any)
+		if vnext["address"] != "traffic.example.com" {
+			t.Fatalf("address = %v, want custom share address", vnext["address"])
+		}
+	})
+
+	t.Run("reality stream settings are converted to client-side outbound settings", func(t *testing.T) {
+		stream := `{
+			"network":"tcp",
+			"security":"reality",
+			"tcpSettings":{"header":{"type":"none"}},
+			"realitySettings":{
+				"serverNames":["reality.example.com"],
+				"shortIds":["ab12cd"],
+				"privateKey":"server-private",
+				"target":"www.example.com:443",
+				"settings":{"publicKey":"PBKvalue","fingerprint":"firefox","spiderX":"/spider","mldsa65Verify":"PQV"}
+			}
+		}`
+		in := bridgeInbound(model.VLESS, "remote-vless", `{"clients":[{"id":"11111111-1111-1111-1111-111111111111","flow":"xtls-rprx-vision"}]}`)
+		in.StreamSettings = stream
+		got := BuildNodeOutboundCandidates([]*model.Node{bridgeNode()}, []*model.Inbound{in}, NodeOutboundCollisionContext{})[0]
+		if !got.Available {
+			t.Fatalf("candidate should be available, got %+v", got)
+		}
+		outStream := got.Outbound["streamSettings"].(map[string]any)
+		reality := outStream["realitySettings"].(map[string]any)
+		if reality["publicKey"] != "PBKvalue" || reality["serverName"] != "reality.example.com" || reality["shortId"] != "ab12cd" {
+			t.Fatalf("reality outbound settings = %+v", reality)
+		}
+		if _, ok := reality["privateKey"]; ok {
+			t.Fatalf("client-side reality settings must not include server privateKey: %+v", reality)
+		}
+		if _, ok := reality["settings"]; ok {
+			t.Fatalf("client-side reality settings must flatten nested settings: %+v", reality)
+		}
+	})
 }
 
 func TestMergeNodeOutbounds(t *testing.T) {

@@ -304,8 +304,9 @@ func nodeInboundToOutbound(node *model.Node, inbound *model.Inbound, tag string)
 		"protocol": string(inbound.Protocol),
 	}
 	if len(stream) > 0 {
-		base["streamSettings"] = stream
+		base["streamSettings"] = outboundStreamSettings(stream)
 	}
+	address := nodeOutboundAddress(node, inbound)
 	switch inbound.Protocol {
 	case model.VLESS:
 		client, ok := firstClient(settings)
@@ -317,7 +318,7 @@ func nodeInboundToOutbound(node *model.Node, inbound *model.Inbound, tag string)
 		if flow, _ := client["flow"].(string); flow != "" {
 			user["flow"] = flow
 		}
-		base["settings"] = map[string]any{"vnext": []any{serverWithUsers(node.Address, inbound.Port, []any{user})}}
+		base["settings"] = map[string]any{"vnext": []any{serverWithUsers(address, inbound.Port, []any{user})}}
 	case model.VMESS:
 		client, ok := firstClient(settings)
 		id, _ := client["id"].(string)
@@ -330,14 +331,14 @@ func nodeInboundToOutbound(node *model.Node, inbound *model.Inbound, tag string)
 		} else {
 			user["security"] = "auto"
 		}
-		base["settings"] = map[string]any{"vnext": []any{serverWithUsers(node.Address, inbound.Port, []any{user})}}
+		base["settings"] = map[string]any{"vnext": []any{serverWithUsers(address, inbound.Port, []any{user})}}
 	case model.Trojan:
 		client, ok := firstClient(settings)
 		password, _ := client["password"].(string)
 		if !ok || strings.TrimSpace(password) == "" {
 			return nil, NodeOutboundUnavailableMissingCredentials
 		}
-		server := map[string]any{"address": node.Address, "port": float64(inbound.Port), "password": password}
+		server := map[string]any{"address": address, "port": float64(inbound.Port), "password": password}
 		if flow, _ := client["flow"].(string); flow != "" {
 			server["flow"] = flow
 		}
@@ -357,7 +358,7 @@ func nodeInboundToOutbound(node *model.Node, inbound *model.Inbound, tag string)
 			return nil, NodeOutboundUnavailableMissingCredentials
 		}
 		base["settings"] = map[string]any{"servers": []any{map[string]any{
-			"address":  node.Address,
+			"address":  address,
 			"port":     float64(inbound.Port),
 			"method":   method,
 			"password": password,
@@ -366,6 +367,124 @@ func nodeInboundToOutbound(node *model.Node, inbound *model.Inbound, tag string)
 		return nil, NodeOutboundUnavailableUnsupportedProtocol
 	}
 	return base, ""
+}
+
+func nodeOutboundAddress(node *model.Node, inbound *model.Inbound) string {
+	nodeAddr := ""
+	if node != nil {
+		nodeAddr = strings.TrimSpace(node.Address)
+	}
+	listenAddr := shareableListenAddress(inbound)
+	customAddr := strings.TrimSpace(inbound.ShareAddr)
+	switch inbound.ShareAddrStrategy {
+	case "listen":
+		return firstNonEmpty(listenAddr, nodeAddr)
+	case "custom":
+		return firstNonEmpty(customAddr, nodeAddr, listenAddr)
+	default:
+		return firstNonEmpty(nodeAddr, listenAddr)
+	}
+}
+
+func shareableListenAddress(inbound *model.Inbound) string {
+	listen := strings.TrimSpace(inbound.Listen)
+	if listen == "" || strings.HasPrefix(listen, "@") || strings.HasPrefix(listen, "/") {
+		return ""
+	}
+	if listen == "0.0.0.0" || listen == "::" || listen == "[::]" || strings.EqualFold(listen, "localhost") ||
+		strings.HasPrefix(listen, "127.") || listen == "::1" || listen == "[::1]" {
+		return ""
+	}
+	return strings.Trim(listen, "[]")
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func outboundStreamSettings(stream map[string]any) map[string]any {
+	out := cloneStringAnyMap(stream)
+	delete(out, "externalProxy")
+	if tls, ok := out["tlsSettings"].(map[string]any); ok {
+		out["tlsSettings"] = outboundTLSSettings(tls)
+	}
+	if reality, ok := out["realitySettings"].(map[string]any); ok {
+		out["realitySettings"] = outboundRealitySettings(reality)
+	}
+	return out
+}
+
+func outboundTLSSettings(tls map[string]any) map[string]any {
+	out := cloneStringAnyMap(tls)
+	if settings, ok := tls["settings"].(map[string]any); ok {
+		copyStringField(out, settings, "fingerprint")
+		copyStringField(out, settings, "echConfigList")
+		copyStringField(out, settings, "verifyPeerCertByName")
+		if pins, ok := settings["pinnedPeerCertSha256"]; ok {
+			out["pinnedPeerCertSha256"] = pins
+		}
+	}
+	delete(out, "settings")
+	delete(out, "certificates")
+	delete(out, "rejectUnknownSni")
+	delete(out, "disableSystemRoot")
+	delete(out, "echServerKeys")
+	delete(out, "echSockopt")
+	return out
+}
+
+func outboundRealitySettings(reality map[string]any) map[string]any {
+	out := map[string]any{}
+	settings, _ := reality["settings"].(map[string]any)
+	copyStringField(out, settings, "publicKey")
+	copyStringField(out, settings, "fingerprint")
+	copyStringField(out, settings, "spiderX")
+	copyStringField(out, settings, "mldsa65Verify")
+	if serverName, _ := settings["serverName"].(string); strings.TrimSpace(serverName) != "" {
+		out["serverName"] = serverName
+	} else if names := stringListFromAny(reality["serverNames"]); len(names) > 0 {
+		out["serverName"] = names[0]
+	}
+	if shortIDs := stringListFromAny(reality["shortIds"]); len(shortIDs) > 0 {
+		out["shortId"] = shortIDs[0]
+	}
+	return out
+}
+
+func cloneStringAnyMap(in map[string]any) map[string]any {
+	out := make(map[string]any, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
+}
+
+func copyStringField(dst map[string]any, src map[string]any, key string) {
+	if value, _ := src[key].(string); strings.TrimSpace(value) != "" {
+		dst[key] = value
+	}
+}
+
+func stringListFromAny(raw any) []string {
+	switch v := raw.(type) {
+	case []string:
+		return v
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 func serverWithUsers(address string, port int, users []any) map[string]any {
