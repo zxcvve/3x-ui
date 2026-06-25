@@ -78,21 +78,7 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 	}
 	emailTaken := !errors.Is(err, gorm.ErrRecordNotFound)
 	if emailTaken {
-		if existing.SubID == "" || existing.SubID != client.SubID {
-			return false, common.NewError("email already in use:", client.Email)
-		}
-	}
-
-	if client.SubID != "" {
-		var subTaken int64
-		if err := database.GetDB().Model(&model.ClientRecord{}).
-			Where("sub_id = ? AND email <> ?", client.SubID, client.Email).
-			Count(&subTaken).Error; err != nil {
-			return false, err
-		}
-		if subTaken > 0 {
-			return false, common.NewError("subId already in use:", client.SubID)
-		}
+		return false, common.NewError("email already in use:", client.Email)
 	}
 
 	needRestart := false
@@ -333,18 +319,6 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 			Where("id = ?", id).
 			Update("email", updated.Email).Error; err != nil {
 			return false, err
-		}
-	}
-
-	if updated.SubID != "" {
-		var subCollision int64
-		if err := database.GetDB().Model(&model.ClientRecord{}).
-			Where("sub_id = ? AND id <> ?", updated.SubID, id).
-			Count(&subCollision).Error; err != nil {
-			return false, err
-		}
-		if subCollision > 0 {
-			return false, common.NewError("Duplicate subId:", updated.SubID)
 		}
 	}
 

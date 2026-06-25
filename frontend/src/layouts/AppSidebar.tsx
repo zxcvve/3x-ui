@@ -17,6 +17,7 @@ import {
   GlobalOutlined,
   HeartOutlined,
   ImportOutlined,
+  LinkOutlined,
   LogoutOutlined,
   MailOutlined,
   MenuOutlined,
@@ -42,12 +43,13 @@ const DONATE_URL = 'https://donate.sanaei.dev/';
 const REPO_URL = 'https://github.com/MHSanaei/3x-ui';
 const LOGOUT_KEY = '__logout__';
 
-type IconName = 'dashboard' | 'inbound' | 'team' | 'groups' | 'setting' | 'tool' | 'cluster' | 'hosts' | 'logout' | 'apidocs' | 'outbound' | 'routing';
+type IconName = 'dashboard' | 'inbound' | 'team' | 'subscriptions' | 'groups' | 'setting' | 'tool' | 'cluster' | 'hosts' | 'logout' | 'apidocs' | 'outbound' | 'routing';
 
 const iconByName: Record<IconName, ComponentType> = {
   dashboard: DashboardOutlined,
   inbound: ImportOutlined,
   team: TeamOutlined,
+  subscriptions: LinkOutlined,
   groups: TagsOutlined,
   setting: SettingOutlined,
   tool: ToolOutlined,
@@ -139,6 +141,7 @@ export default function AppSidebar() {
     { key: '/', icon: 'dashboard', title: t('menu.dashboard') },
     { key: '/inbounds', icon: 'inbound', title: t('menu.inbounds') },
     { key: '/clients', icon: 'team', title: t('menu.clients') },
+    { key: '/subscriptions', icon: 'subscriptions', title: 'Subscriptions' },
     { key: '/groups', icon: 'groups', title: t('menu.groups') },
     { key: '/nodes', icon: 'cluster', title: t('menu.nodes') },
     { key: '/hosts', icon: 'hosts', title: t('menu.hosts') },

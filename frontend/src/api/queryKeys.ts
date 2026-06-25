@@ -33,6 +33,11 @@ export const keys = {
     lastOnline: () => ['clients', 'lastOnline'] as const,
     groups: () => ['clients', 'groups'] as const,
   },
+  subscriptions: {
+    root: () => ['subscriptions'] as const,
+    list: () => ['subscriptions', 'list'] as const,
+    detail: (subId: string) => ['subscriptions', 'detail', subId] as const,
+  },
   xray: {
     root: () => ['xray'] as const,
     config: () => ['xray', 'config'] as const,

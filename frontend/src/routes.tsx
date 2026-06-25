@@ -6,6 +6,7 @@ import PanelLayout from '@/layouts/PanelLayout';
 const IndexPage = lazy(() => import('@/pages/index/IndexPage'));
 const InboundsPage = lazy(() => import('@/pages/inbounds/InboundsPage'));
 const ClientsPage = lazy(() => import('@/pages/clients/ClientsPage'));
+const SubscriptionsPage = lazy(() => import('@/pages/subscriptions/SubscriptionsPage'));
 const GroupsPage = lazy(() => import('@/pages/groups/GroupsPage'));
 const NodesPage = lazy(() => import('@/pages/nodes/NodesPage'));
 const HostsPage = lazy(() => import('@/pages/hosts/HostsPage'));
@@ -25,6 +26,7 @@ const routes: RouteObject[] = [
       { index: true, element: withSuspense(<IndexPage />) },
       { path: 'inbounds', element: withSuspense(<InboundsPage />) },
       { path: 'clients', element: withSuspense(<ClientsPage />) },
+      { path: 'subscriptions', element: withSuspense(<SubscriptionsPage />) },
       { path: 'groups', element: withSuspense(<GroupsPage />) },
       { path: 'nodes', element: withSuspense(<NodesPage />) },
       { path: 'hosts', element: withSuspense(<HostsPage />) },
