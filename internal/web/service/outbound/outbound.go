@@ -249,6 +249,13 @@ func extractOutboundEndpoints(ob map[string]any) []string {
 			}
 		}
 	case "vless":
+		if vnext, ok := settings["vnext"].([]any); ok {
+			for _, v := range vnext {
+				if vm, ok := v.(map[string]any); ok {
+					addServer(vm["address"], vm["port"])
+				}
+			}
+		}
 		addServer(settings["address"], settings["port"])
 	case "hysteria":
 		addServer(settings["address"], settings["port"])

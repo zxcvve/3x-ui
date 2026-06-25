@@ -398,6 +398,45 @@ func TestTestOutboundsTCPLane(t *testing.T) {
 	}
 }
 
+func TestTestOutboundsTCPLaneVLESSVNext(t *testing.T) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer l.Close()
+	go func() {
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				return
+			}
+			conn.Close()
+		}
+	}()
+	port := l.Addr().(*net.TCPAddr).Port
+
+	batch := mustJSON(t, []any{map[string]any{
+		"tag":      "node-1-in-443-tcp",
+		"protocol": "vless",
+		"settings": map[string]any{"vnext": []any{map[string]any{
+			"address": "127.0.0.1",
+			"port":    port,
+			"users":   []any{map[string]any{"id": "11111111-1111-1111-1111-111111111111"}},
+		}}},
+	}})
+	results, err := (&OutboundService{}).TestOutbounds(batch, "", "", "tcp")
+	if err != nil {
+		t.Fatalf("TestOutbounds: %v", err)
+	}
+	r := results[0]
+	if !r.Success || r.Mode != "tcp" || r.Tag != "node-1-in-443-tcp" || len(r.Endpoints) != 1 {
+		t.Fatalf("unexpected tcp result: %+v", r)
+	}
+	if r.Endpoints[0].Address != fmt.Sprintf("127.0.0.1:%d", port) {
+		t.Errorf("endpoint = %q, want listener address", r.Endpoints[0].Address)
+	}
+}
+
 func TestTestOutboundsHTTPBatchThroughStubSocks(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
