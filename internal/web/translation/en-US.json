@@ -1786,7 +1786,9 @@
       },
       "nodeOutbounds": {
         "title": "From node inbounds (read-only)",
-        "desc": "Generated from enabled node bridge selections. Manage source selection in the node form."
+        "desc": "Generated from enabled node bridge selections. Manage source selection in the node form.",
+        "unavailableTitle": "Unavailable node bridge selections",
+        "unavailableDesc": "Selected node inbounds that could not be generated yet. Fix the reason shown here, then reload Xray settings."
       },
       "balancer": {
         "addBalancer": "Add Balancer",

@@ -31,6 +31,15 @@ interface SubscriptionOutboundsProps {
   onTestSubscription: (outbound: Record<string, unknown>, mode: string) => void;
 }
 
+const unavailableReasonLabels: Record<string, string> = {
+  node_disabled: 'Node disabled',
+  missing_inbound: 'Missing inbound',
+  inbound_disabled: 'Inbound disabled',
+  unsupported_protocol: 'Unsupported protocol',
+  missing_credentials: 'Missing credentials',
+  tag_collision: 'Tag collision',
+};
+
 // Read-only view of outbounds imported from active subscriptions. They are not
 // part of the editable template (so no edit/delete/move), but traffic is matched
 // by tag and they can be latency-tested via the same backend endpoint.
@@ -57,28 +66,37 @@ export default function SubscriptionOutbounds({
 
   if (rows.length === 0) return null;
 
-  const identityCell = (record: OutboundRow) => (
-    <div className="identity-cell">
-      <Tooltip title={record.tag}>
-        <span className="tag-name">{record.tag || '—'}</span>
-      </Tooltip>
-      <div className="protocol-line">
-        <Tag color="green">{record.protocol}</Tag>
-        {(record as { nodeName?: string; sourceInboundTag?: string }).nodeName && (
-          <Tag color="blue">
-            {(record as { nodeName?: string }).nodeName}
-            {(record as { sourceInboundTag?: string }).sourceInboundTag ? ` / ${(record as { sourceInboundTag?: string }).sourceInboundTag}` : ''}
-          </Tag>
-        )}
-        {[Protocols.VMess, Protocols.VLESS, Protocols.Trojan, Protocols.Shadowsocks].includes(record.protocol as never) && (
-          <>
-            <Tag>{record.streamSettings?.network}</Tag>
-            {showSecurity(record.streamSettings?.security) && <Tag color="purple">{record.streamSettings?.security}</Tag>}
-          </>
-        )}
+  const identityCell = (record: OutboundRow) => {
+    const meta = record as OutboundRow & { nodeName?: string; sourceInboundTag?: string; unavailableReason?: string };
+    const reason = meta.unavailableReason;
+    return (
+      <div className="identity-cell">
+        <Tooltip title={record.tag}>
+          <span className="tag-name">{record.tag || '—'}</span>
+        </Tooltip>
+        <div className="protocol-line">
+          <Tag color={reason ? 'red' : 'green'}>{record.protocol}</Tag>
+          {meta.nodeName && (
+            <Tag color="blue">
+              {meta.nodeName}
+              {meta.sourceInboundTag ? ` / ${meta.sourceInboundTag}` : ''}
+            </Tag>
+          )}
+          {reason && (
+            <Tag color="red">
+              {unavailableReasonLabels[reason] || reason}
+            </Tag>
+          )}
+          {[Protocols.VMess, Protocols.VLESS, Protocols.Trojan, Protocols.Shadowsocks].includes(record.protocol as never) && (
+            <>
+              <Tag>{record.streamSettings?.network}</Tag>
+              {showSecurity(record.streamSettings?.security) && <Tag color="purple">{record.streamSettings?.security}</Tag>}
+            </>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const addressCell = (record: OutboundRow) => {
     const addrs = outboundAddresses(record);
@@ -124,7 +142,7 @@ export default function SubscriptionOutbounds({
           shape="circle"
           size={isMobile ? 'small' : undefined}
           loading={isTesting(subscriptionTestStates, key)}
-          disabled={!record.tag || isUntestable(record) || isTesting(subscriptionTestStates, key)}
+          disabled={!record.tag || !!(record as { unavailableReason?: string }).unavailableReason || isUntestable(record) || isTesting(subscriptionTestStates, key)}
           icon={<ThunderboltOutlined />}
           onClick={() => onTestSubscription(record as unknown as Record<string, unknown>, testMode)}
         />

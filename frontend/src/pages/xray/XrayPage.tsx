@@ -62,6 +62,7 @@ export default function XrayPage() {
     subscriptionOutboundTags,
     nodeOutbounds,
     nodeOutboundTags,
+    nodeOutboundCandidates,
     outboundsTraffic,
     outboundTestStates,
     subscriptionTestStates,
@@ -227,6 +228,7 @@ export default function XrayPage() {
             subscriptionOutboundTags={subscriptionOutboundTags}
             nodeOutbounds={nodeOutbounds}
             nodeOutboundTags={nodeOutboundTags}
+            nodeOutboundCandidates={nodeOutboundCandidates}
             isMobile={isMobile}
             onResetTraffic={resetOutboundsTraffic}
             onTest={onTestOutbound}

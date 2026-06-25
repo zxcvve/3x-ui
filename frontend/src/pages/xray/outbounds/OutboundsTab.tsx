@@ -78,6 +78,7 @@ interface OutboundsTabProps {
   subscriptionOutboundTags?: string[];
   nodeOutbounds?: unknown[];
   nodeOutboundTags?: string[];
+  nodeOutboundCandidates?: unknown[];
   isMobile: boolean;
   onResetTraffic: (tag: string) => void;
   onTest: (index: number, mode: string) => void;
@@ -100,6 +101,7 @@ export default function OutboundsTab({
   subscriptionOutboundTags,
   nodeOutbounds,
   nodeOutboundTags,
+  nodeOutboundCandidates,
   isMobile,
   onResetTraffic,
   onTest,
@@ -161,6 +163,14 @@ export default function OutboundsTab({
     }
     return [...tags];
   }, [templateSettings?.outbounds, editingIndex, subscriptionOutboundTags, nodeOutboundTags]);
+
+  const unavailableNodeCandidates = useMemo(
+    () => (nodeOutboundCandidates || []).filter((candidate) => {
+      const c = candidate as { available?: boolean; unavailableReason?: string } | null;
+      return c && c.available === false && !!c.unavailableReason;
+    }),
+    [nodeOutboundCandidates],
+  );
 
   const mutate = useCallback(
     (mutator: (next: XraySettingsValue) => void) => {
@@ -581,6 +591,18 @@ export default function OutboundsTab({
             subscriptionOutbounds={nodeOutbounds}
             title={t('pages.xray.nodeOutbounds.title')}
             description={t('pages.xray.nodeOutbounds.desc')}
+            outboundsTraffic={outboundsTraffic}
+            subscriptionTestStates={subscriptionTestStates}
+            testMode={testMode}
+            isMobile={isMobile}
+            onTestSubscription={onTestSubscription}
+          />
+        )}
+        {unavailableNodeCandidates.length > 0 && (
+          <SubscriptionOutbounds
+            subscriptionOutbounds={unavailableNodeCandidates}
+            title={t('pages.xray.nodeOutbounds.unavailableTitle')}
+            description={t('pages.xray.nodeOutbounds.unavailableDesc')}
             outboundsTraffic={outboundsTraffic}
             subscriptionTestStates={subscriptionTestStates}
             testMode={testMode}

@@ -59,6 +59,7 @@ export interface UseXraySettingResult {
   subscriptionOutboundTags: string[];
   nodeOutbounds: unknown[];
   nodeOutboundTags: string[];
+  nodeOutboundCandidates: unknown[];
   outboundsTraffic: OutboundTrafficRow[];
   outboundTestStates: Record<number, OutboundTestState>;
   subscriptionTestStates: Record<string, OutboundTestState>;
@@ -134,6 +135,7 @@ export function useXraySetting(): UseXraySettingResult {
   const [subscriptionOutboundTags, setSubscriptionOutboundTags] = useState<string[]>([]);
   const [nodeOutbounds, setNodeOutbounds] = useState<unknown[]>([]);
   const [nodeOutboundTags, setNodeOutboundTags] = useState<string[]>([]);
+  const [nodeOutboundCandidates, setNodeOutboundCandidates] = useState<unknown[]>([]);
   const [outboundTestStates, setOutboundTestStates] = useState<Record<number, OutboundTestState>>({});
   // Subscription outbounds aren't in templateSettings.outbounds, so their test
   // results are keyed by tag rather than by index.
@@ -172,6 +174,7 @@ export function useXraySetting(): UseXraySettingResult {
     setSubscriptionOutboundTags(obj.subscriptionOutboundTags || []);
     setNodeOutbounds(obj.nodeOutbounds || []);
     setNodeOutboundTags(obj.nodeOutboundTags || []);
+    setNodeOutboundCandidates(obj.nodeOutboundCandidates || []);
     const nextUrl = obj.outboundTestUrl || DEFAULT_TEST_URL;
     setOutboundTestUrlState(nextUrl);
     oldOutboundTestUrlRef.current = nextUrl;
@@ -463,6 +466,7 @@ export function useXraySetting(): UseXraySettingResult {
       subscriptionOutboundTags,
       nodeOutbounds,
       nodeOutboundTags,
+      nodeOutboundCandidates,
       outboundsTraffic,
       outboundTestStates,
       subscriptionTestStates,
@@ -493,6 +497,7 @@ export function useXraySetting(): UseXraySettingResult {
       subscriptionOutboundTags,
       nodeOutbounds,
       nodeOutboundTags,
+      nodeOutboundCandidates,
       outboundsTraffic,
       outboundTestStates,
       subscriptionTestStates,
