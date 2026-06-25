@@ -1,7 +1,7 @@
-.docker-buildx:
+.docker-build:
   image: docker:27.5.1
   variables:
-    DOCKER_BUILDKIT: "1"
+    DOCKER_BUILDKIT: "0"
     DOCKER_DRIVER: overlay2
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
@@ -10,13 +10,10 @@
       command: ["--tls=false"]
   before_script:
     - docker version
-    - docker buildx version
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
-    - docker buildx create --name x-ui-builder --use
-    - docker buildx inspect --bootstrap
 
 docker:image:
-  extends: .docker-buildx
+  extends: .docker-build
   stage: docker
   needs:
     - job: binary:amd64
@@ -54,10 +51,8 @@ docker:image:
       tar -xzf x-ui-linux-amd64.tar.gz
 
       if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
-        docker buildx build \
-          --no-push \
+        docker build \
           --pull \
-          --platform linux/amd64 \
           --tag "$CI_REGISTRY_IMAGE:mr-$CI_MERGE_REQUEST_IID" \
           .
         exit 0
@@ -70,9 +65,9 @@ docker:image:
         TAG_ARGS="--tag $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG --tag $CI_REGISTRY_IMAGE:$VERSION"
       fi
 
-      docker buildx build \
+      docker build \
         --pull \
-        --push \
-        --platform linux/amd64 \
         $TAG_ARGS \
         .
+
+      docker push --all-tags "$CI_REGISTRY_IMAGE"

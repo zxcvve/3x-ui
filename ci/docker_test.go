@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestDockerJobUsesBuildxInsteadOfKaniko(t *testing.T) {
+func TestDockerJobUsesDockerCliInsteadOfKanikoOrBuildx(t *testing.T) {
 	data, err := os.ReadFile("docker.yml")
 	if err != nil {
 		t.Fatal(err)
@@ -16,7 +16,10 @@ func TestDockerJobUsesBuildxInsteadOfKaniko(t *testing.T) {
 	if strings.Contains(content, "gcr.io/kaniko-project/executor") || strings.Contains(content, "/kaniko/executor") {
 		t.Fatal("docker:image should use docker buildx instead of Kaniko, which hangs while pushing from the local runner")
 	}
-	if !strings.Contains(content, "docker buildx build") {
-		t.Fatal("docker:image should build with docker buildx")
+	if strings.Contains(content, "docker buildx") || strings.Contains(content, "moby/buildkit") {
+		t.Fatal("docker:image should not use buildx because bootstrapping BuildKit pulls an extra Docker Hub image")
+	}
+	if !strings.Contains(content, "docker build ") || !strings.Contains(content, "docker push ") {
+		t.Fatal("docker:image should build and push with the Docker CLI")
 	}
 }
