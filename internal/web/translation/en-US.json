@@ -1102,6 +1102,13 @@
       "inboundTags": "Inbounds",
       "inboundTagsHint": "Selection is matched by the inbound tag. An empty selection imports none.",
       "inboundTagsPlaceholder": "Load and select inbounds",
+      "outboundBridgeEnable": "Expose inbounds as outbounds",
+      "outboundBridgeEnableHint": "Generate read-only main-node outbounds from selected remote node inbounds. This is separate from the connection outbound above.",
+      "outboundBridgeTags": "Outbound bridge inbounds",
+      "outboundBridgeTagsHint": "Selected inbounds become routeable generated outbounds when their protocol and credentials can be converted.",
+      "outboundBridgeTagsPlaceholder": "Load and select bridgeable inbounds",
+      "bridgeMissingInbound": "Inbound not loaded or no longer synced",
+      "bridgeUnsupportedProtocol": "Unsupported protocol: {{protocol}}",
       "loadInbounds": "Load inbounds from node",
       "inboundsLoaded": "Loaded {{count}} inbounds",
       "inboundsLoadFailed": "Failed to load inbounds",
@@ -1776,6 +1783,10 @@
         "toastRefreshFailed": "Refresh failed",
         "toastDeleted": "Deleted",
         "toastDeleteFailed": "Delete failed"
+      },
+      "nodeOutbounds": {
+        "title": "From node inbounds (read-only)",
+        "desc": "Generated from enabled node bridge selections. Manage source selection in the node form."
       },
       "balancer": {
         "addBalancer": "Add Balancer",

@@ -32,6 +32,7 @@ func (a *NodeController) initRouter(g *gin.RouterGroup) {
 	g.GET("/list", a.list)
 	g.GET("/get/:id", a.get)
 	g.GET("/webCert/:id", a.webCert)
+	g.GET("/bridgeCandidates/:id", a.bridgeCandidates)
 
 	g.POST("/add", a.add)
 	g.POST("/provision", a.provision)
@@ -118,6 +119,16 @@ func (a *NodeController) webCert(c *gin.Context) {
 	jsonObj(c, files, nil)
 }
 
+func (a *NodeController) bridgeCandidates(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "get"), err)
+		return
+	}
+	candidates, err := a.nodeService.OutboundBridgeCandidatesForNode(id)
+	jsonObj(c, candidates, err)
+}
+
 func (a *NodeController) ensureReachable(c *gin.Context, n *model.Node) error {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 6*time.Second)
 	defer cancel()
@@ -142,7 +153,7 @@ func (a *NodeController) add(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "pages.nodes.toasts.add"), err)
 		return
 	}
-	if n.OutboundTag != "" {
+	if n.OutboundTag != "" || n.OutboundBridgeEnable {
 		if err := a.xrayService.RestartXray(false); err != nil {
 			logger.Warning("apply node outbound bridge failed:", err)
 		}
@@ -188,7 +199,8 @@ func (a *NodeController) update(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "pages.nodes.toasts.update"), err)
 		return
 	}
-	if n.OutboundTag != old.OutboundTag {
+	bridgeChanged := n.OutboundBridgeEnable != old.OutboundBridgeEnable || !slices.Equal(n.OutboundBridgeTags, old.OutboundBridgeTags)
+	if n.OutboundTag != old.OutboundTag || bridgeChanged {
 		if err := a.xrayService.RestartXray(false); err != nil {
 			logger.Warning("apply node outbound bridge change failed:", err)
 		}
@@ -206,9 +218,15 @@ func (a *NodeController) del(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "get"), err)
 		return
 	}
+	n, _ := a.nodeService.GetById(id)
 	if err := a.nodeService.Delete(id); err != nil {
 		jsonMsg(c, I18nWeb(c, "pages.nodes.toasts.delete"), err)
 		return
+	}
+	if n != nil && (n.OutboundTag != "" || n.OutboundBridgeEnable) {
+		if err := a.xrayService.RestartXray(false); err != nil {
+			logger.Warning("apply node delete change failed:", err)
+		}
 	}
 	jsonMsg(c, I18nWeb(c, "pages.nodes.toasts.delete"), nil)
 }
@@ -235,7 +253,7 @@ func (a *NodeController) setEnable(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "pages.nodes.toasts.update"), err)
 		return
 	}
-	if n.OutboundTag != "" {
+	if n.OutboundTag != "" || n.OutboundBridgeEnable {
 		if err := a.xrayService.RestartXray(false); err != nil {
 			logger.Warning("apply node enable change failed:", err)
 		}

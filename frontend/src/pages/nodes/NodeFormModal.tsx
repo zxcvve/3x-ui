@@ -64,6 +64,8 @@ function defaultValues(): NodeFormValues {
     inboundSyncMode: 'all',
     inboundTags: [],
     outboundTag: '',
+    outboundBridgeEnable: false,
+    outboundBridgeTags: [],
   };
 }
 
@@ -93,6 +95,8 @@ export default function NodeFormModal({
   const scheme = Form.useWatch('scheme', form) ?? 'https';
   const tlsVerifyMode = Form.useWatch('tlsVerifyMode', form) ?? 'verify';
   const inboundSyncMode = Form.useWatch('inboundSyncMode', form) ?? 'all';
+  const outboundBridgeEnable = Form.useWatch('outboundBridgeEnable', form) ?? false;
+  const outboundBridgeTags = Form.useWatch('outboundBridgeTags', form);
   const sslMode = Form.useWatch('sslMode', form) ?? 'none';
   const sshSkipHostKeyCheck = Form.useWatch('sshSkipHostKeyCheck', form) ?? false;
   const isProvision = mode === 'add' && addMode === 'provision';
@@ -125,6 +129,8 @@ export default function NodeFormModal({
         scheme: (node.scheme as 'http' | 'https') || base.scheme,
         inboundSyncMode: (node.inboundSyncMode as 'all' | 'selected') || base.inboundSyncMode,
         inboundTags: node.inboundTags ?? [],
+        outboundBridgeEnable: node.outboundBridgeEnable ?? false,
+        outboundBridgeTags: node.outboundBridgeTags ?? [],
       }
       : {
         ...base,
@@ -147,7 +153,7 @@ export default function NodeFormModal({
     if (mode === 'edit') setAddMode('existing');
     form.resetFields();
     form.setFieldsValue(next);
-    setInboundOptions((next.inboundTags || []).map((tag) => ({ tag })));
+    setInboundOptions(Array.from(new Set([...(next.inboundTags || []), ...(next.outboundBridgeTags || [])])).map((tag) => ({ tag })));
     setTestResult(null);
     setProvisionResult(null);
   }, [open, mode, node, form]);
@@ -174,8 +180,22 @@ export default function NodeFormModal({
       inboundSyncMode: values.inboundSyncMode,
       inboundTags: values.inboundSyncMode === 'selected' ? values.inboundTags : [],
       outboundTag: values.outboundTag || '',
+      outboundBridgeEnable: values.outboundBridgeEnable,
+      outboundBridgeTags: values.outboundBridgeEnable ? values.outboundBridgeTags : [],
     };
   }
+
+  const bridgeUnavailable = useMemo(() => {
+    if (!outboundBridgeEnable) return [];
+    const byTag = new Map(inboundOptions.map((inbound) => [inbound.tag, inbound]));
+    const supported = new Set(['vless', 'vmess', 'trojan', 'shadowsocks']);
+    return (outboundBridgeTags ?? []).flatMap((tag) => {
+      const inbound = byTag.get(tag);
+      if (!inbound) return [{ tag, reason: t('pages.nodes.bridgeMissingInbound') }];
+      if (inbound.protocol && !supported.has(inbound.protocol)) return [{ tag, reason: t('pages.nodes.bridgeUnsupportedProtocol', { protocol: inbound.protocol }) }];
+      return [];
+    });
+  }, [inboundOptions, outboundBridgeEnable, outboundBridgeTags, t]);
 
   async function onTest() {
     try {
@@ -643,6 +663,49 @@ export default function NodeFormModal({
                 }))}
               />
             </Form.Item>
+          )}
+
+          <Form.Item
+            label={t('pages.nodes.outboundBridgeEnable')}
+            name="outboundBridgeEnable"
+            valuePropName="checked"
+            tooltip={t('pages.nodes.outboundBridgeEnableHint')}
+          >
+            <Switch />
+          </Form.Item>
+
+          <Form.Item
+            label={t('pages.nodes.outboundBridgeTags')}
+            name="outboundBridgeTags"
+            tooltip={t('pages.nodes.outboundBridgeTagsHint')}
+            hidden={!outboundBridgeEnable}
+          >
+            <Select
+              mode="multiple"
+              allowClear
+              loading={fetchingInbounds}
+              placeholder={t('pages.nodes.outboundBridgeTagsPlaceholder')}
+              popupRender={(menu) => (
+                <>
+                  <Button type="text" block loading={fetchingInbounds} onClick={onFetchInbounds}>
+                    {t('pages.nodes.loadInbounds')}
+                  </Button>
+                  {menu}
+                </>
+              )}
+              options={inboundOptions.map((inbound) => ({
+                value: inbound.tag,
+                label: `${inbound.remark || inbound.tag}${inbound.protocol ? ` (${inbound.protocol}:${inbound.port || 0})` : ''}`,
+              }))}
+            />
+          </Form.Item>
+          {outboundBridgeEnable && bridgeUnavailable.length > 0 && (
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16 }}
+              message={bridgeUnavailable.map((item) => `${item.tag}: ${item.reason}`).join('\n')}
+            />
           )}
 
           <div className="test-row">

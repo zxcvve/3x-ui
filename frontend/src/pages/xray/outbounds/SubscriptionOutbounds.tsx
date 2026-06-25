@@ -22,6 +22,8 @@ import {
 
 interface SubscriptionOutboundsProps {
   subscriptionOutbounds: unknown[];
+  title?: string;
+  description?: string;
   outboundsTraffic: OutboundTrafficRow[];
   subscriptionTestStates: Record<string, OutboundTestState>;
   testMode: 'tcp' | 'http';
@@ -34,6 +36,8 @@ interface SubscriptionOutboundsProps {
 // by tag and they can be latency-tested via the same backend endpoint.
 export default function SubscriptionOutbounds({
   subscriptionOutbounds,
+  title,
+  description,
   outboundsTraffic,
   subscriptionTestStates,
   testMode,
@@ -43,7 +47,11 @@ export default function SubscriptionOutbounds({
   const { t } = useTranslation();
 
   const rows = useMemo<OutboundRow[]>(
-    () => (subscriptionOutbounds || []).map((o, i) => ({ ...(o as object), key: i }) as OutboundRow),
+    () => (subscriptionOutbounds || []).map((o, i) => {
+      const candidate = o as { outbound?: object; nodeName?: string; sourceInboundTag?: string; unavailableReason?: string };
+      const row = candidate?.outbound ? { ...candidate.outbound, ...candidate } : { ...(o as object) };
+      return { ...row, key: i } as OutboundRow;
+    }),
     [subscriptionOutbounds],
   );
 
@@ -56,6 +64,12 @@ export default function SubscriptionOutbounds({
       </Tooltip>
       <div className="protocol-line">
         <Tag color="green">{record.protocol}</Tag>
+        {(record as { nodeName?: string; sourceInboundTag?: string }).nodeName && (
+          <Tag color="blue">
+            {(record as { nodeName?: string }).nodeName}
+            {(record as { sourceInboundTag?: string }).sourceInboundTag ? ` / ${(record as { sourceInboundTag?: string }).sourceInboundTag}` : ''}
+          </Tag>
+        )}
         {[Protocols.VMess, Protocols.VLESS, Protocols.Trojan, Protocols.Shadowsocks].includes(record.protocol as never) && (
           <>
             <Tag>{record.streamSettings?.network}</Tag>
@@ -120,8 +134,8 @@ export default function SubscriptionOutbounds({
 
   const header = (
     <div className="subscription-outbounds-head">
-      <div className="subscription-outbounds-title">{t('pages.xray.outboundSub.fromSubsTitle')}</div>
-      <div className="subscription-outbounds-desc">{t('pages.xray.outboundSub.fromSubsDesc')}</div>
+      <div className="subscription-outbounds-title">{title || t('pages.xray.outboundSub.fromSubsTitle')}</div>
+      <div className="subscription-outbounds-desc">{description || t('pages.xray.outboundSub.fromSubsDesc')}</div>
     </div>
   );
 

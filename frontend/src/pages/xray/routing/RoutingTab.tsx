@@ -32,6 +32,7 @@ interface RoutingTabProps {
   inboundTags: string[];
   clientReverseTags: string[];
   subscriptionOutboundTags?: string[];
+  nodeOutboundTags?: string[];
   isMobile: boolean;
 }
 
@@ -41,6 +42,7 @@ export default function RoutingTab({
   inboundTags,
   clientReverseTags,
   subscriptionOutboundTags,
+  nodeOutboundTags,
   isMobile,
 }: RoutingTabProps) {
   const { t } = useTranslation();
@@ -133,8 +135,11 @@ export default function RoutingTab({
     for (const tag of subscriptionOutboundTags || []) {
       if (tag) out.add(tag);
     }
+    for (const tag of nodeOutboundTags || []) {
+      if (tag) out.add(tag);
+    }
     return [...out];
-  }, [templateSettings?.outbounds, clientReverseTags, subscriptionOutboundTags]);
+  }, [templateSettings?.outbounds, clientReverseTags, subscriptionOutboundTags, nodeOutboundTags]);
 
   const balancerTagOptions = useMemo(() => {
     const out: string[] = [''];

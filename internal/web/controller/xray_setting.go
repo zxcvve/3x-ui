@@ -118,6 +118,16 @@ func (a *XraySettingController) getXraySetting(c *gin.Context) {
 	if subTags, err := a.OutboundSubscriptionService.AllActiveOutboundTags(); err == nil && len(subTags) > 0 {
 		xrayResponse["subscriptionOutboundTags"] = subTags
 	}
+	nodeService := service.NodeService{}
+	if nodeObs, err := nodeService.AllActiveNodeOutbounds(); err == nil && len(nodeObs) > 0 {
+		xrayResponse["nodeOutbounds"] = nodeObs
+	}
+	if nodeTags, err := nodeService.AllActiveNodeOutboundTags(); err == nil && len(nodeTags) > 0 {
+		xrayResponse["nodeOutboundTags"] = nodeTags
+	}
+	if nodeCandidates, err := nodeService.OutboundBridgeCandidates(); err == nil && len(nodeCandidates) > 0 {
+		xrayResponse["nodeOutboundCandidates"] = nodeCandidates
+	}
 	result, err := json.Marshal(xrayResponse)
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "pages.settings.toasts.getSettings"), err)

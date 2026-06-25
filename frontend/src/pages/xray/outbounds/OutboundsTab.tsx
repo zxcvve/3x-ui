@@ -76,6 +76,8 @@ interface OutboundsTabProps {
   inboundTags: string[];
   subscriptionOutbounds?: unknown[];
   subscriptionOutboundTags?: string[];
+  nodeOutbounds?: unknown[];
+  nodeOutboundTags?: string[];
   isMobile: boolean;
   onResetTraffic: (tag: string) => void;
   onTest: (index: number, mode: string) => void;
@@ -96,6 +98,8 @@ export default function OutboundsTab({
   inboundTags: _inboundTags,
   subscriptionOutbounds,
   subscriptionOutboundTags,
+  nodeOutbounds,
+  nodeOutboundTags,
   isMobile,
   onResetTraffic,
   onTest,
@@ -152,8 +156,11 @@ export default function OutboundsTab({
     for (const tag of subscriptionOutboundTags || []) {
       if (tag) tags.add(tag);
     }
+    for (const tag of nodeOutboundTags || []) {
+      if (tag) tags.add(tag);
+    }
     return [...tags];
-  }, [templateSettings?.outbounds, editingIndex, subscriptionOutboundTags]);
+  }, [templateSettings?.outbounds, editingIndex, subscriptionOutboundTags, nodeOutboundTags]);
 
   const mutate = useCallback(
     (mutator: (next: XraySettingsValue) => void) => {
@@ -562,6 +569,18 @@ export default function OutboundsTab({
         {Array.isArray(subscriptionOutbounds) && subscriptionOutbounds.length > 0 && (
           <SubscriptionOutbounds
             subscriptionOutbounds={subscriptionOutbounds}
+            outboundsTraffic={outboundsTraffic}
+            subscriptionTestStates={subscriptionTestStates}
+            testMode={testMode}
+            isMobile={isMobile}
+            onTestSubscription={onTestSubscription}
+          />
+        )}
+        {Array.isArray(nodeOutbounds) && nodeOutbounds.length > 0 && (
+          <SubscriptionOutbounds
+            subscriptionOutbounds={nodeOutbounds}
+            title={t('pages.xray.nodeOutbounds.title')}
+            description={t('pages.xray.nodeOutbounds.desc')}
             outboundsTraffic={outboundsTraffic}
             subscriptionTestStates={subscriptionTestStates}
             testMode={testMode}

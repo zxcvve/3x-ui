@@ -57,6 +57,8 @@ export interface UseXraySettingResult {
   clientReverseTags: string[];
   subscriptionOutbounds: unknown[];
   subscriptionOutboundTags: string[];
+  nodeOutbounds: unknown[];
+  nodeOutboundTags: string[];
   outboundsTraffic: OutboundTrafficRow[];
   outboundTestStates: Record<number, OutboundTestState>;
   subscriptionTestStates: Record<string, OutboundTestState>;
@@ -130,6 +132,8 @@ export function useXraySetting(): UseXraySettingResult {
   const [clientReverseTags, setClientReverseTags] = useState<string[]>([]);
   const [subscriptionOutbounds, setSubscriptionOutbounds] = useState<unknown[]>([]);
   const [subscriptionOutboundTags, setSubscriptionOutboundTags] = useState<string[]>([]);
+  const [nodeOutbounds, setNodeOutbounds] = useState<unknown[]>([]);
+  const [nodeOutboundTags, setNodeOutboundTags] = useState<string[]>([]);
   const [outboundTestStates, setOutboundTestStates] = useState<Record<number, OutboundTestState>>({});
   // Subscription outbounds aren't in templateSettings.outbounds, so their test
   // results are keyed by tag rather than by index.
@@ -143,11 +147,13 @@ export function useXraySetting(): UseXraySettingResult {
   const outboundTestUrlRef = useRef(outboundTestUrl);
   const templateSettingsRef = useRef<XraySettingsValue | null>(null);
   const subscriptionOutboundsRef = useRef<unknown[]>([]);
+  const nodeOutboundsRef = useRef<unknown[]>([]);
 
   xraySettingRef.current = xraySetting;
   outboundTestUrlRef.current = outboundTestUrl;
   templateSettingsRef.current = templateSettings;
   subscriptionOutboundsRef.current = subscriptionOutbounds;
+  nodeOutboundsRef.current = nodeOutbounds;
 
   // Seed local editor state from the config query. Runs on first fetch and
   // every time the query refetches (e.g. after a successful save).
@@ -164,6 +170,8 @@ export function useXraySetting(): UseXraySettingResult {
     setClientReverseTags(obj.clientReverseTags || []);
     setSubscriptionOutbounds(obj.subscriptionOutbounds || []);
     setSubscriptionOutboundTags(obj.subscriptionOutboundTags || []);
+    setNodeOutbounds(obj.nodeOutbounds || []);
+    setNodeOutboundTags(obj.nodeOutboundTags || []);
     const nextUrl = obj.outboundTestUrl || DEFAULT_TEST_URL;
     setOutboundTestUrlState(nextUrl);
     oldOutboundTestUrlRef.current = nextUrl;
@@ -323,7 +331,8 @@ export function useXraySetting(): UseXraySettingResult {
     // (subscriptionTestStates). Both go through the same probe endpoint.
     const templateList = templateSettingsRef.current?.outbounds || [];
     const subList = (subscriptionOutboundsRef.current || []) as Array<{ tag?: string; protocol?: string }>;
-    if ((templateList.length === 0 && subList.length === 0) || testingAll) return;
+    const nodeList = (nodeOutboundsRef.current || []) as Array<{ tag?: string; protocol?: string; outbound?: { tag?: string; protocol?: string } }>;
+    if ((templateList.length === 0 && subList.length === 0 && nodeList.length === 0) || testingAll) return;
     setTestingAll(true);
     try {
       type TcpEntry =
@@ -353,6 +362,10 @@ export function useXraySetting(): UseXraySettingResult {
       };
       templateList.forEach((ob, i) => enqueue(ob, 'tpl', i, ''));
       subList.forEach((ob) => enqueue(ob, 'sub', -1, typeof ob?.tag === 'string' ? ob.tag : ''));
+      nodeList.forEach((candidate) => {
+        const ob = (candidate?.outbound ?? candidate) as { tag?: string; protocol?: string };
+        enqueue(ob, 'sub', -1, typeof ob?.tag === 'string' ? ob.tag : '');
+      });
 
       // TCP probes are dial-only and cheap server-side; per-item requests
       // keep results landing one by one, each routed to its own state map.
@@ -448,6 +461,8 @@ export function useXraySetting(): UseXraySettingResult {
       clientReverseTags,
       subscriptionOutbounds,
       subscriptionOutboundTags,
+      nodeOutbounds,
+      nodeOutboundTags,
       outboundsTraffic,
       outboundTestStates,
       subscriptionTestStates,
@@ -476,6 +491,8 @@ export function useXraySetting(): UseXraySettingResult {
       clientReverseTags,
       subscriptionOutbounds,
       subscriptionOutboundTags,
+      nodeOutbounds,
+      nodeOutboundTags,
       outboundsTraffic,
       outboundTestStates,
       subscriptionTestStates,

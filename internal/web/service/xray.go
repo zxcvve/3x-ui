@@ -296,6 +296,12 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		mergeSubscriptionOutbounds(xrayConfig, prepend, appendList)
 	}
 
+	if candidates, err := s.nodeService.OutboundBridgeCandidatesForConfig(xrayConfig); err != nil {
+		logger.Warning("read node outbound bridges failed:", err)
+	} else if err := MergeNodeOutbounds(xrayConfig, candidates); err != nil {
+		logger.Warning("merge node outbound bridges failed:", err)
+	}
+
 	// Route opted-in local mtproto inbounds through the core's router. Each one
 	// gets a loopback SOCKS bridge — tagged with the inbound's own tag so it is
 	// matchable in routing rules — that its mtg sidecar dials Telegram through.

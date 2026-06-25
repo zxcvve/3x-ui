@@ -182,6 +182,48 @@ func TestNodeService_NormalizeInboundSelection(t *testing.T) {
 	}
 }
 
+func TestNodeService_UpdatePersistsOutboundBridgeSelection(t *testing.T) {
+	setupSettingTestDB(t)
+	s := &NodeService{}
+	n := &model.Node{
+		Name:                 "n",
+		Address:              "example.com",
+		Port:                 443,
+		ApiToken:             "token",
+		Enable:               true,
+		OutboundBridgeEnable: true,
+		OutboundBridgeTags:   []string{"old"},
+	}
+	if err := s.Create(n); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	updated := &model.Node{
+		Name:                 "n",
+		Address:              "example.com",
+		Port:                 443,
+		ApiToken:             "token",
+		Enable:               true,
+		OutboundBridgeEnable: true,
+		OutboundBridgeTags:   []string{" remote-vless ", "", "remote-vless", "remote-trojan"},
+	}
+	if err := s.Update(n.Id, updated); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	got, err := s.GetById(n.Id)
+	if err != nil {
+		t.Fatalf("GetById: %v", err)
+	}
+	if !got.OutboundBridgeEnable {
+		t.Fatal("OutboundBridgeEnable was not persisted")
+	}
+	if len(got.OutboundBridgeTags) != 2 || got.OutboundBridgeTags[0] != "remote-vless" || got.OutboundBridgeTags[1] != "remote-trojan" {
+		t.Fatalf("OutboundBridgeTags = %#v, want [remote-vless remote-trojan]", got.OutboundBridgeTags)
+	}
+	if got.OutboundTag != "" {
+		t.Fatalf("OutboundTag should remain independent and empty, got %q", got.OutboundTag)
+	}
+}
+
 func TestFilterNodeSnapshot(t *testing.T) {
 	snapshot := func() *runtime.TrafficSnapshot {
 		return &runtime.TrafficSnapshot{Inbounds: []*model.Inbound{

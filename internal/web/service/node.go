@@ -364,6 +364,23 @@ func normalizeBasePath(p string) string {
 	return p
 }
 
+func normalizeNodeTagSelection(input []string) []string {
+	seen := make(map[string]struct{}, len(input))
+	tags := make([]string, 0, len(input))
+	for _, tag := range input {
+		tag = strings.TrimSpace(tag)
+		if tag == "" {
+			continue
+		}
+		if _, ok := seen[tag]; ok {
+			continue
+		}
+		seen[tag] = struct{}{}
+		tags = append(tags, tag)
+	}
+	return tags
+}
+
 func (s *NodeService) normalize(n *model.Node) error {
 	n.Name = strings.TrimSpace(n.Name)
 	n.ApiToken = strings.TrimSpace(n.ApiToken)
@@ -392,20 +409,12 @@ func (s *NodeService) normalize(n *model.Node) error {
 		n.InboundSyncMode = "all"
 		n.InboundTags = nil
 	} else {
-		seen := make(map[string]struct{}, len(n.InboundTags))
-		tags := make([]string, 0, len(n.InboundTags))
-		for _, tag := range n.InboundTags {
-			tag = strings.TrimSpace(tag)
-			if tag == "" {
-				continue
-			}
-			if _, ok := seen[tag]; ok {
-				continue
-			}
-			seen[tag] = struct{}{}
-			tags = append(tags, tag)
-		}
-		n.InboundTags = tags
+		n.InboundTags = normalizeNodeTagSelection(n.InboundTags)
+	}
+	if !n.OutboundBridgeEnable {
+		n.OutboundBridgeTags = nil
+	} else {
+		n.OutboundBridgeTags = normalizeNodeTagSelection(n.OutboundBridgeTags)
 	}
 	if n.TlsVerifyMode == "pin" {
 		if _, err := runtime.DecodeCertPin(n.PinnedCertSha256); err != nil {
@@ -432,26 +441,32 @@ func (s *NodeService) Update(id int, in *model.Node) error {
 	if err != nil {
 		return err
 	}
+	outboundBridgeTagsJSON, err := json.Marshal(in.OutboundBridgeTags)
+	if err != nil {
+		return err
+	}
 	db := database.GetDB()
 	existing := &model.Node{}
 	if err := db.Where("id = ?", id).First(existing).Error; err != nil {
 		return err
 	}
 	updates := map[string]any{
-		"name":                  in.Name,
-		"remark":                in.Remark,
-		"scheme":                in.Scheme,
-		"address":               in.Address,
-		"port":                  in.Port,
-		"base_path":             in.BasePath,
-		"api_token":             in.ApiToken,
-		"enable":                in.Enable,
-		"allow_private_address": in.AllowPrivateAddress,
-		"tls_verify_mode":       in.TlsVerifyMode,
-		"pinned_cert_sha256":    in.PinnedCertSha256,
-		"inbound_sync_mode":     in.InboundSyncMode,
-		"inbound_tags":          string(inboundTagsJSON),
-		"outbound_tag":          in.OutboundTag,
+		"name":                   in.Name,
+		"remark":                 in.Remark,
+		"scheme":                 in.Scheme,
+		"address":                in.Address,
+		"port":                   in.Port,
+		"base_path":              in.BasePath,
+		"api_token":              in.ApiToken,
+		"enable":                 in.Enable,
+		"allow_private_address":  in.AllowPrivateAddress,
+		"tls_verify_mode":        in.TlsVerifyMode,
+		"pinned_cert_sha256":     in.PinnedCertSha256,
+		"inbound_sync_mode":      in.InboundSyncMode,
+		"inbound_tags":           string(inboundTagsJSON),
+		"outbound_tag":           in.OutboundTag,
+		"outbound_bridge_enable": in.OutboundBridgeEnable,
+		"outbound_bridge_tags":   string(outboundBridgeTagsJSON),
 	}
 	if err := db.Model(model.Node{}).Where("id = ?", id).Updates(updates).Error; err != nil {
 		return err

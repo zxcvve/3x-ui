@@ -60,6 +60,8 @@ export default function XrayPage() {
     clientReverseTags,
     subscriptionOutbounds,
     subscriptionOutboundTags,
+    nodeOutbounds,
+    nodeOutboundTags,
     outboundsTraffic,
     outboundTestStates,
     subscriptionTestStates,
@@ -207,6 +209,7 @@ export default function XrayPage() {
             inboundTags={inboundTags}
             clientReverseTags={clientReverseTags}
             subscriptionOutboundTags={subscriptionOutboundTags}
+            nodeOutboundTags={nodeOutboundTags}
             isMobile={isMobile}
           />
         );
@@ -222,6 +225,8 @@ export default function XrayPage() {
             inboundTags={inboundTags}
             subscriptionOutbounds={subscriptionOutbounds}
             subscriptionOutboundTags={subscriptionOutboundTags}
+            nodeOutbounds={nodeOutbounds}
+            nodeOutboundTags={nodeOutboundTags}
             isMobile={isMobile}
             onResetTraffic={resetOutboundsTraffic}
             onTest={onTestOutbound}
@@ -239,6 +244,7 @@ export default function XrayPage() {
             setTemplateSettings={setTemplateSettings}
             clientReverseTags={clientReverseTags}
             subscriptionOutboundTags={subscriptionOutboundTags}
+            nodeOutboundTags={nodeOutboundTags}
             isMobile={isMobile}
           />
         );
