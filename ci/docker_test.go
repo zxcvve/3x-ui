@@ -22,4 +22,18 @@ func TestDockerJobUsesDockerCliInsteadOfKanikoOrBuildx(t *testing.T) {
 	if !strings.Contains(content, "docker build ") || !strings.Contains(content, "docker push ") {
 		t.Fatal("docker:image should build and push with the Docker CLI")
 	}
+	if !strings.Contains(content, "pull_policy: if-not-present") {
+		t.Fatal("docker:image should use cached Docker images when available")
+	}
+}
+
+func TestBinaryJobUsesCachedNodeImageWhenAvailable(t *testing.T) {
+	data, err := os.ReadFile("binary.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(string(data), "pull_policy: if-not-present") {
+		t.Fatal("binary:amd64 should use cached Docker images when available")
+	}
 }

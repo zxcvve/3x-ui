@@ -1,5 +1,7 @@
 .docker-build:
-  image: docker:27.5.1
+  image:
+    name: docker:27.5.1
+    pull_policy: if-not-present
   variables:
     DOCKER_BUILDKIT: "0"
     DOCKER_DRIVER: overlay2
@@ -7,6 +9,7 @@
     DOCKER_TLS_CERTDIR: ""
   services:
     - name: docker:27.5.1-dind
+      pull_policy: if-not-present
       command: ["--tls=false"]
   before_script:
     - docker version
