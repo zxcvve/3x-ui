@@ -318,6 +318,15 @@ func validateRoutedProfileTarget(subID, outboundTag string) error {
 			return nil
 		}
 	}
+	nodeTags, err := (&NodeService{}).AllActiveNodeOutboundTags()
+	if err != nil {
+		return err
+	}
+	for _, tag := range nodeTags {
+		if tag == outboundTag {
+			return nil
+		}
+	}
 	return common.NewError("unknown outbound tag:", outboundTag)
 }
 

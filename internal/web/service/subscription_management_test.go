@@ -294,6 +294,46 @@ func TestSubscriptionServiceCreateRoutedProfileCreatesRuleAndRejectsDuplicateEma
 	}
 }
 
+func TestSubscriptionServiceCreateRoutedProfileAcceptsNodeDerivedOutbound(t *testing.T) {
+	setupBulkDB(t)
+	svc := &SubscriptionService{}
+	inboundSvc := &InboundService{}
+	ib := mkInbound(t, 29501, model.VLESS, `{"clients":[]}`)
+	seedSubscriptionClient(t, model.ClientRecord{Email: "base-node-route@example.com", SubID: "node-route-sub", Enable: true}, ib.Id)
+	seedSubscriptionXrayTemplate(t, `{
+		"outbounds":[{"tag":"direct","protocol":"freedom","settings":{}}],
+		"routing":{"rules":[]}
+	}`)
+	node := bridgeNode()
+	node.OutboundBridgeTags = []string{"in-443-tcp"}
+	if err := database.GetDB().Create(node).Error; err != nil {
+		t.Fatalf("create node: %v", err)
+	}
+	inbound := bridgeInbound(model.VLESS, "in-443-tcp", `{"clients":[{"id":"11111111-1111-1111-1111-111111111111"}]}`)
+	inbound.Id = 0
+	inbound.NodeID = &node.Id
+	if err := database.GetDB().Create(inbound).Error; err != nil {
+		t.Fatalf("create node inbound: %v", err)
+	}
+
+	member, _, err := svc.CreateRoutedProfile(inboundSvc, RoutedProfileRequest{
+		SubID:       "node-route-sub",
+		Email:       "node-route@example.com",
+		InboundIDs:  []int{ib.Id},
+		OutboundTag: "node-7-in-443-tcp",
+	})
+	if err != nil {
+		t.Fatalf("CreateRoutedProfile with node-derived outbound: %v", err)
+	}
+	if member.RouteTag != "node-7-in-443-tcp" {
+		t.Fatalf("route tag = %q", member.RouteTag)
+	}
+	rules := routedProfileRules(t)
+	if len(rules) != 1 || rules[0]["outboundTag"] != "node-7-in-443-tcp" {
+		t.Fatalf("rules = %#v, want node-derived outbound rule", rules)
+	}
+}
+
 func TestSubscriptionServiceCreateRoutedProfileRejectsUnknownOutbound(t *testing.T) {
 	setupBulkDB(t)
 	svc := &SubscriptionService{}
